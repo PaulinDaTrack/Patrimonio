@@ -1,0 +1,99 @@
+body {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    margin: 0;
+    background: url('/static/wallpaper.png') no-repeat center center fixed;
+    background-size: cover;
+    font-family: 'Oswald', sans-serif;
+}
+
+.container {
+    width: 90%;
+    max-width: 400px;
+    padding: 20px;
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-radius: 30px;
+    text-align: center;
+    color: white;
+}
+
+h1 {
+    margin-bottom: 20px;
+    font-size: 30px; /* Tamanho do texto */
+    font-weight: 300;
+}
+
+.form-group {
+    margin-bottom: 15px;
+    text-align: left;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-size: 12px; /* Tamanho do texto */
+    font-family: "Roboto", monospace;
+    font-weight: 600; /* Fonte mais fina */
+    text-transform: uppercase;
+    color: #f1f1f1;
+    letter-spacing: 1px;
+}
+
+.form-group input {
+    width: 100%;
+    max-width: 350px; /* Aumentar a largura dos campos */
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background: rgba(255, 255, 255, 0.1);
+    color: white;
+    margin: 0 auto; /* Centralizar os campos */
+    display: block; /* Garantir que os campos sejam blocos */
+}
+
+button {
+    width: 100%;
+    padding: 10px;
+    border: none;
+    border-radius: 5px;
+    background: linear-gradient(135deg, #4502f8, #3a02d6);
+    color: white;
+    font-size: 16px;
+    font-family: "Roboto", monospace;
+    font-weight: 600; /* Fonte mais fina */
+    text-transform: uppercase;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+button:hover {
+    background: linear-gradient(135deg, #3a02d6, #2a019b);
+}
+
+.error-message {
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    border-radius: 5px;
+    color: red;
+    padding: 10px;
+    margin-bottom: 15px;
+}
+
+.error-card {
+    width: 100%;
+    max-width: 350px;
+    padding: 15px;
+    margin-bottom: 20px;
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    border-radius: 10px;
+    color: red;
+    text-align: center;
+    font-family: "Roboto", monospace;
+    font-weight: 600;
+}

@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Patrimônios</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='index.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+</head>
+<body class="container">
+    <h1>GERENCIAMENTO DE PATRIMÔNIOS</h1>
+    <div class="btn-group">
+        <a href="{{ url_for('cadastrar_patrimonio') }}" class="btn btn-red">Cadastrar Patrimônios</a>
+        <a href="{{ url_for('listar_patrimonios') }}" class="btn btn-red">Listar Patrimônios</a>
+    </div>
+</body>
+</html>

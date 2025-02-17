@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Patrimônios</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='listar.css') }}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Lista de Patrimônios</h1>
+        </header>
+        <div class="filters">
+            <label for="filter-nome">Nome:</label>
+            <input type="text" id="filter-nome" class="autocomplete-nome">
+            <label for="filter-etiqueta">Etiqueta:</label>
+            <input type="text" id="filter-etiqueta" class="autocomplete-etiqueta">
+            <button id="apply-filters">Aplicar Filtros</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Nome</th>
+                    <th>Etiqueta</th>
+                    <th>Observação</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody id="patrimonios-tbody">
+                {% for patrimonio in patrimonios %}
+                <tr class="patrimonio-row" data-id="{{ patrimonio[0] }}">
+                    <td>{{ patrimonio[0] }}</td>
+                    <td>{{ patrimonio[1] }}</td>
+                    <td>{{ patrimonio[4] }}</td>
+                    <td>{{ patrimonio[8] }}</td>
+                    <td><button class="btn edit-btn">Editar</button></td>
+                </tr>
+                <tr class="patrimonio-details" id="details-{{ patrimonio[0] }}" style="display: none;">
+                    <td colspan="5">
+                        <form class="edit-form">
+                            <div class="edit-fields">
+                                <div class="edit-field">
+                                    <label>Nome</label>
+                                    <input type="text" name="nome" value="{{ patrimonio[1] }}">
+                                </div>
+                                <div class="edit-field">
+                                    <label>Etiqueta</label>
+                                    <input type="text" name="etiqueta" value="{{ patrimonio[4] }}">
+                                </div>
+                                <div class="edit-field">
+                                    <label>Colaborador</label>
+                                    <input type="text" name="colaborador" class="autocomplete-colaborador" value="{{ patrimonio[2] }}">
+                                </div>
+                                <div class="edit-field">
+                                    <label>Colaborador 2</label>
+                                    <input type="text" name="colaborador2" class="autocomplete-colaborador" value="{{ patrimonio[3] }}">
+                                </div>
+
+                                <div class="edit-field">
+                                    <label>Estado</label>
+                                    <select name="estado" class="dropdown">
+                                        <option value="Novo" {% if patrimonio[6] == 'Novo' %}selected{% endif %}>NOVO</option>
+                                        <option value="Usado" {% if patrimonio[6] == 'Usado' %}selected{% endif %}>USADO</option>
+                                        <option value="Seminovo" {% if patrimonio[6] == 'Seminovo' %}selected{% endif %}>SEMINOVO</option>
+                                    </select>
+                                </div>
+                                <div class="edit-field">
+                                    <label>Valor (R$)</label>
+                                    <input type="number" step="0.01" name="valor" value="{{ patrimonio[7] }}">
+                                </div>
+                                <div class="edit-field">
+                                    <label>Especificação</label>
+                                    <textarea name="especificacao">{{ patrimonio[5] }}</textarea>
+                                </div>
+                                <div class="edit-field">
+                                    <label>Observação</label>
+                                    <textarea name="observacao">{{ patrimonio[8] }}</textarea>
+                                </div>
+                                <div class="edit-field">
+                                    <button type="button" class="btn open-folder-btn" onclick="window.open('{{ patrimonio[9] }}', '_blank')">
+                                        <i class="fas fa-paperclip" style="font-size: 24px; color: #fff;"></i> Anexos
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="edit-buttons">
+                                <button type="submit" class="btn">Salvar</button>
+                                <button type="button" class="btn cancel-btn">Cancelar</button>
+                            </div>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <script>
+        $(document).ready(function() {
+            $('.expand-link').on('click', function(e) {
+                e.preventDefault();
+                var row = $(this).closest('.patrimonio-row');
+                var detailsRow = $('#details-' + row.data('id'));
+                detailsRow.toggle();
+            });
+
+            $('.edit-btn').on('click', function() {
+                var row = $(this).closest('.patrimonio-row');
+                var detailsRow = $('#details-' + row.data('id'));
+                detailsRow.toggle();
+                $('.filters, .patrimonio-row').not(row).not(detailsRow).hide();
+            });
+
+            $('.edit-form').on('submit', function(e) {
+                e.preventDefault();
+                var form = $(this);
+                var row = form.closest('.patrimonio-details').prev('.patrimonio-row');
+                var id = row.data('id');
+                $.ajax({
+                    url: "{{ url_for('editar_patrimonio') }}",
+                    method: "POST",
+                    data: form.serialize() + "&id=" + id,
+                    success: function(response) {
+                        alert('Informações atualizadas com sucesso!');
+                        location.reload();
+                    },
+                    error: function() {
+                        alert('Erro ao atualizar informações.');
+                    }
+                });
+            });
+
+            $('.cancel-btn').on('click', function() {
+                var form = $(this).closest('.edit-form');
+                var detailsRow = form.closest('.patrimonio-details');
+                detailsRow.hide();
+                $('.filters, .patrimonio-row').show();
+            });
+
+            $('.open-folder-btn').on('click', function() {
+                var url = $(this).data('url');
+                window.open(url, '_blank');
+            });
+
+            $('#apply-filters').on('click', function() {
+                var nome = $('#filter-nome').val().toLowerCase();
+                var etiqueta = $('#filter-etiqueta').val().toLowerCase();
+
+                $('#patrimonios-tbody tr.patrimonio-row').each(function() {
+                    var row = $(this);
+                    var rowNome = row.find('td:eq(1)').text().toLowerCase();
+                    var rowEtiqueta = row.find('td:eq(2)').text().toLowerCase();
+
+                    if ((nome === "" || rowNome.includes(nome)) &&
+                        (etiqueta === "" || rowEtiqueta.includes(etiqueta))) {
+                        row.show();
+                        row.next('.patrimonio-details').show();
+                    } else {
+                        row.hide();
+                        row.next('.patrimonio-details').hide();
+                    }
+                });
+            });
+
+            $(".autocomplete-nome").autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: "{{ url_for('autocomplete_nomes') }}",
+                        data: {
+                            term: request.term
+                        },
+                        success: function(data) {
+                            response(data);
+                        }
+                    });
+                }
+            });
+
+            $(".autocomplete-etiqueta").autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: "{{ url_for('autocomplete_etiquetas') }}",
+                        data: {
+                            term: request.term
+                        },
+                        success: function(data) {
+                            response(data);
+                        }
+                    });
+                }
+            });
+
+            $(".autocomplete-colaborador").autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: "{{ url_for('autocomplete_colaboradores') }}",
+                        data: {
+                            term: request.term
+                        },
+                        success: function(data) {
+                            response(data);
+                        }
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>

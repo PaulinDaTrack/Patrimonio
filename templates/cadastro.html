@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cadastro de Patrimônios</title>
+    
+    <!-- Importação do CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='cadastro.css') }}">
+
+    <!-- Importação do jQuery e jQuery UI -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.min.js"></script>
+    
+    <!-- Estilos do jQuery UI -->
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+    
+    <!-- Fonte Oswald -->
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@300;400;500;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+    <div class="container">
+        <h1>Cadastro de Patrimônios</h1>
+        
+        <!-- Cartão de erro -->
+        {% if error %}
+        <div class="error-card">
+            <p>{{ error }}</p>
+        </div>
+        {% endif %}
+        
+        <form action="{{ url_for('cadastrar') }}" method="post" enctype="multipart/form-data">
+            <!-- Nome e Etiqueta -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="nome">Nome<span style="color: red;">*</span>:</label>
+                    <input type="text" id="nome" name="nome" required>
+                </div>
+                <div class="form-group">
+                    <label for="etiqueta">Etiqueta<span style="color: red;">*</span>: </label>
+                    <input type="text" id="etiqueta" name="etiqueta" required 
+                           onkeydown="if(event.key === 'Enter') { event.preventDefault(); }">
+                </div>
+            </div>
+
+            <!-- Colaboradores -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="colaborador">Colaborador:</label>
+                    <input type="text" id="colaborador" name="colaborador" class="autocomplete">
+                </div>
+                <div class="form-group">
+                    <label for="colaborador2">2°Colaborador:</label>
+                    <input type="text" id="colaborador2" name="colaborador2" class="autocomplete">
+                </div>
+            </div>
+
+            <!-- Valor e Estado -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="valor">Valor (R$):</label>
+                    <input type="number" step="0.01" id="valor" name="valor">
+                </div>
+                <div class="form-group">
+                    <label for="estado">Estado:</label>
+                    <select id="estado" name="estado">
+                        <option value="NOVO">NOVO</option>
+                        <option value="SEMINOVO">SEMINOVO</option>
+                        <option value="USADO">USADO</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Especificação e Observação -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="especificacao">Especificação:</label>
+                    <textarea id="especificacao" name="especificacao" rows="5"></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="observacao">Observação:</label>
+                    <textarea id="observacao" name="observacao" rows="5"></textarea>
+                </div>
+            </div>
+
+            <!-- Upload de Arquivos -->
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="anexos">Anexos:</label>
+                    <input type="file" id="anexos" name="anexos" multiple>
+                </div>
+            </div>
+
+            <!-- Botões -->
+            <div class="form-buttons">
+                <button type="submit">Cadastrar</button>
+                <a href="{{ url_for('index') }}" class="btn-voltar">Voltar</a>
+            </div>
+
+            <input type="hidden" id="url" name="url">
+        </form>
+    </div>
+
+    <div class="loading-overlay">
+        <div class="spinner"></div>
+    </div>
+
+    <!-- Script do Autocomplete -->
+    <script>
+        $(function() {
+            $(".autocomplete").autocomplete({
+                source: function(request, response) {
+                    $.ajax({
+                        url: "{{ url_for('autocomplete_colaboradores') }}",
+                        data: { term: request.term },
+                        success: function(data) {
+                            response(data);
+                        }
+                    });
+                }
+            });
+
+            // Mostrar overlay de carregamento ao enviar o formulário
+            $('form').on('submit', function() {
+                $('.loading-overlay').css({
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center'
+                });
+            });
+        });
+    </script>
+
+</body>
+</html>

@@ -1,0 +1,226 @@
+/* Define altura total da tela e centraliza os elementos na tela */
+html, body {
+    height: 100vh;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    /* Define a imagem de fundo */
+    background: url('/static/wallpaper.png') no-repeat center center fixed;
+    background-size: cover;
+}
+
+/* Estiliza a área central onde está o conteúdo */
+.container {
+    width: 90%;
+    max-width: 800px;
+    padding: 20px;
+    background: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(10px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    border-radius: 30px;
+
+    /* Centraliza o form dentro da .container */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Estiliza o título */
+h1 {
+    color: white;
+    font-family: 'Oswald', sans-serif;
+    font-weight: 300;
+    text-transform: uppercase;
+    margin-bottom: 30px;
+    font-size: 28px;
+}
+
+/* Estiliza o formulário interno */
+form {
+    width: 100%;
+    max-width: 600px;
+    padding: 20px;
+    border-radius: 30px;
+    backdrop-filter: blur(10px);
+
+    /* Garante que o form fique centralizado */
+    margin: auto;
+}
+
+/* Ajusta os botões para ficarem lado a lado */
+.form-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 15px;
+    width: 100%;
+    margin-top: 15px;
+}
+
+/* Define o tamanho e o estilo dos botões */
+button, .btn-voltar {
+    flex: 1; /* Faz os botões ocuparem o mesmo espaço */
+    max-width: 250px;
+    padding: 12px;
+    background: linear-gradient(135deg, #4502f8, #3a02d6);
+    color: #fff;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px; /* Tamanho do texto */
+    font-family: "Roboto", monospace;
+    font-weight: 600; /* Fonte mais fina */
+    text-transform: uppercase;
+    transition: background 0.3s, transform 0.2s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Efeito ao passar o mouse */
+button:hover, .btn-voltar:hover {
+    background: linear-gradient(135deg, #3a02d6, #2a019b);
+    transform: translateY(-3px);
+}
+
+/* Efeito de clique */
+button:active, .btn-voltar:active {
+    transform: translateY(0);
+}
+
+/* Estilo para as linhas do formulário */
+.form-row {
+    display: flex;
+    flex-wrap: wrap; /* Permite que os campos "quebrem" para a linha seguinte quando não houver espaço */
+    gap: 30px; /* Aumentei o gap para 30px entre os campos */
+    color: white;
+    width: 100%;
+}
+
+/* Estilo das colunas dentro de cada linha */
+.form-group {
+    flex: 1; /* Flexível para ocupar o espaço disponível */
+    min-width: calc(50% - 15px); /* A largura mínima foi ajustada para 50% menos 15px de espaçamento */
+    max-width: 48%; /* Limita a largura máxima a 48% para dar o espaçamento entre os campos */
+}
+
+/* Estilo dos labels */
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 12px; /* Tamanho do texto */
+    font-family: "Roboto", monospace;
+    font-weight: 600; /* Fonte mais fina */
+    text-transform: uppercase;
+    color: #f1f1f1; /*cor das linhas do formulario*/
+    letter-spacing: 1px;
+    /* Removido text-align: center; para alinhar à esquerda */
+    text-align: left; /* Agora os labels vão ficar alinhados à esquerda */
+    width: 100%; /* Faz com que o label ocupe toda a largura do .form-group */
+}
+
+/* Estilo para os inputs, selects e textareas */
+input, textarea, select {
+    width: 100%; /* Garante que os campos ocupem 100% da largura disponível dentro da .form-group */
+    padding: 10px;
+    margin-bottom: 8px;
+    background-color: transparent;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    color: white;
+    border-radius: 10px;
+}
+
+/* Personaliza o botão do select */
+select {
+    appearance: none; /* Remove o estilo padrão do sistema */
+    cursor: pointer;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    font-family: "Roboto", monospace;
+    font-size: 14px;
+    width: 310px;
+    height: 39px;
+}
+
+/* Personaliza a lista de opções quando o select está aberto */
+select option {
+    background-color: #222; /* Fundo escuro */
+    color: white; /* Texto branco */
+    padding: 10px;
+}
+
+/* Efeito quando o mouse passa sobre uma opção */
+select option:hover {
+    background-color: #4502f8;
+}
+
+/* Estilo para o textarea */
+textarea {
+    resize: none;
+}
+
+/* Estilo para a lista de sugestões (autocomplete) */
+.ui-autocomplete {
+    max-height: 200px;
+    overflow-y: auto;
+    font-size: 14px;
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+/* Estilo para a opção selecionada na lista de sugestões */
+.ui-state-focus {
+    background-color: #007bff;
+    color: white;
+}
+
+.loading-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    display: none; /* Inicialmente escondido */
+}
+
+.loading-overlay .spinner {
+    border: 8px solid rgba(255, 255, 255, 0.3);
+    border-top: 8px solid #fff;
+    border-radius: 50%;
+    width: 60px;
+    height: 60px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.error-card {
+    width: 100%;
+    max-width: 600px;
+    padding: 15px;
+    margin-bottom: 20px;
+    background: rgba(255, 0, 0, 0.1);
+    border: 1px solid rgba(255, 0, 0, 0.3);
+    border-radius: 10px;
+    color: red;
+    text-align: center;
+    font-family: "Roboto", monospace;
+    font-weight: 600;
+}

@@ -1,0 +1,73 @@
+/* Define altura total da tela e centraliza os elementos na tela */
+html, body {
+    height: 100vh; /* Ocupa 100% da altura da tela */
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column; /* Organiza os elementos em coluna (um abaixo do outro) */
+    justify-content: center; /* Centraliza verticalmente */
+    align-items: center; /* Centraliza horizontalmente */
+    
+    /* Define a imagem de fundo */
+    background: url('/static/wallpaper.png') no-repeat center center fixed;
+    
+    /* Faz a imagem cobrir toda a tela sem distorcer */
+    background-size: cover;
+}
+
+/* Estiliza a área central onde está o conteúdo */
+
+.container {
+    width: 90%; /* Usa 90% da largura disponível */
+    max-width: 600px; /* Máximo de 600px para evitar que fique muito grande */
+    height: auto; /* Ajusta a altura automaticamente */
+    padding: 20px;
+    background: transparent; /* Fundo transparente */
+    border: none; /* Remove a borda */
+    box-shadow: none; /* Remove a sombra */
+    color: white;
+    text-align: center; /* Centraliza o conteúdo dentro da caixa */
+    border-radius: 15px; /* Bordas arredondadas */
+}
+
+/* Estiliza o título */
+h1 {
+    color: white; /* Deixa o texto branco */
+    font-family: 'Oswald', sans-serif; /* Usa a fonte Oswald */
+    font-weight: 300; /* Fonte mais fina */
+    margin-bottom: 40px; /* Aumenta o espaço abaixo do título */
+    font-size: 30px; /* Tamanho do texto */
+}
+
+/* Estiliza o grupo de botões */
+.btn-group {
+    display: flex;
+    justify-content: center; /* Centraliza os botões */
+    gap: 20px; /* Aumenta o espaço entre os botões */
+}
+
+/* Estiliza os botões */
+.btn-group .btn {
+    width: auto; /* Faz com que o botão se ajuste ao conteúdo */
+    padding: 15px 30px; /* Aumenta o tamanho interno do botão */
+    border-radius: 30px; /* Deixa os botões bem arredondados */
+    font-size: 16px; /* Tamanho do texto */
+    font-family: "Roboto", monospace;
+    font-weight: 600; /* Fonte mais fina */
+    text-transform: uppercase;
+    background: #4502f8;
+    border: none; /* Remove a borda */
+    color: white; /* Cor do texto branco */
+    text-align: center;
+    cursor: pointer; /* Mostra a "mãozinha" ao passar o mouse */
+    transition: background 0.3s, color 0.3s, transform 0.2s; /* Animações suaves */
+    text-decoration: none; /* Remove o sublinhado */
+}
+
+/* Efeito ao passar o mouse */
+.btn-group .btn:hover {
+    background: white; /* Altera o fundo para branco */
+    color: black; /* Altera o texto para preto */
+    transform: translateY(-5px); /* Levanta o botão levemente */
+}

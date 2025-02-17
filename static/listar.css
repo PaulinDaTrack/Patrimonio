@@ -1,0 +1,480 @@
+/* Reset básico */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+html, body {
+    height: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f4f4f4; /* Fundo cinza claro */
+    font-size: 14px; /* Tamanho do texto */
+    font-family: "Roboto", monospace;
+    font-weight: 600; /* Fonte mais fina */
+    color: white; /* Cor das letras para branco */
+
+    background: url('/static/wallpaper.png') no-repeat center center fixed;
+    background-size: cover;
+}
+
+/* Adicionando o blur externo, caixa externa e borda acinzentada */
+.container {
+    width: 90%;
+    max-width: 1200px;
+    margin: 20px auto;
+    padding: 20px;
+    background: transparent; /* Fundo totalmente transparente */
+    border-radius: 12px;
+    backdrop-filter: blur(10px); /* Blur externo */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3); /* Caixa externa com sombra */
+    border: 1px solid rgba(255, 255, 255, 0.2); /* Borda acinzentada */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    max-height: 80vh; /* Limitar a altura máxima do container */
+    overflow-y: auto; /* Habilitar a rolagem vertical */
+}
+
+/* Tabela com fundo transparente */
+table {
+    background: transparent; /* Fundo transparente */
+}
+
+/* Título estilizado */
+header {
+    width: 100%;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Estiliza o título */
+h1 {
+    color: white; /* Deixa o texto branco */
+    font-family: 'Oswald', sans-serif; /* Usa a fonte Oswald */
+    font-weight: 300; /* Fonte mais fina */
+    margin-bottom: 40px; /* Aumenta o espaço abaixo do título */
+    font-size: 30px; /* Tamanho do texto */
+}
+
+/* Estilização dos filtros */
+.filters {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    width: 100%;
+    margin-bottom: 20px;
+    padding: 10px;
+    background: transparent; /* Fundo transparente */
+    border-radius: 8px;
+}
+
+.filters label {
+    font-weight: 600;
+}
+
+.filters input {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    background: transparent; /* Fundo transparente */
+    color: white; /* Garantir que o texto nos inputs seja branco */
+    transition: 0.3s ease;
+}
+
+.filters input:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+.filters button {
+    padding: 10px 20px;
+    background: #007bff;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.filters button:hover {
+    background: #0056b3;
+}
+
+/* Estilização da tabela */
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+    background: transparent; /* Fundo transparente */
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: none; /* Remove a sombra */
+}
+
+th, td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.2); /* Borda semitransparente */
+    background: transparent; /* Fundo transparente */
+    color: white; /* Cor das letras para branco */
+}
+
+tr:nth-child(even) {
+    background-color: transparent; /* Fundo transparente */
+}
+
+/* Efeito hover nas linhas da tabela */
+tr:hover {
+    background-color: rgba(255, 255, 255, 0.1); /* Fundo semitransparente ao passar o mouse */
+    transition: background 0.3s ease;
+}
+
+/* Botões de ação */
+.edit-btn, .delete-btn {
+    padding: 6px 12px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.3s;
+}
+
+.edit-btn {
+    background: #28a745;
+    color: #fff;
+}
+
+.edit-btn:hover {
+    background: #218838;
+}
+
+.delete-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.delete-btn:hover {
+    background: #c82333;
+}
+
+/* Melhorias no formulário de edição */
+.patrimonio-details {
+    background: transparent; /* Fundo totalmente transparente */
+    border-radius: 10px;
+    box-shadow: none; /* Remove a sombra */
+    padding: 15px;
+    margin-top: 10px;
+}
+
+.patrimonio-details table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.patrimonio-details th {
+    background: transparent; /* Fundo transparente */
+    color: white; /* Cor das letras para branco */
+    text-align: left;
+    padding: 10px;
+    width: 30%;
+    border-radius: 6px 0 0 6px;
+}
+
+.patrimonio-details td {
+    background: transparent; /* Fundo transparente */
+    color: white; /* Cor das letras para branco */
+    padding: 10px;
+    border-radius: 0 6px 6px 0;
+}
+
+.patrimonio-details input,
+.patrimonio-details textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 16px;
+    transition: border 0.3s;
+    background: transparent; /* Fundo transparente */
+    color: white; /* Cor das letras para branco */
+}
+
+.patrimonio-details input:focus,
+.patrimonio-details textarea:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+.patrimonio-details textarea[name="especificacao"],
+.patrimonio-details textarea[name="observacao"] {
+    height: 100px; /* Altura fixa */
+    resize: none; /* Desabilitar redimensionamento */
+}
+
+/* Botão de salvar */
+.patrimonio-details button,
+.patrimonio-details button.cancel-btn,
+.patrimonio-details button.open-folder-btn {
+    flex: 1; /* Faz os botões ocuparem o mesmo espaço */
+    max-width: 250px;
+    padding: 12px;
+    background: linear-gradient(135deg, #4502f8, #3a02d6);
+    color: #fff;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px; /* Tamanho do texto */
+    font-family: "Roboto", monospace;
+    font-weight: 600; /* Fonte mais fina */
+    text-transform: uppercase;
+    transition: background 0.3s, transform 0.2s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Efeito ao passar o mouse */
+.patrimonio-details button:hover,
+.patrimonio-details button.cancel-btn:hover,
+.patrimonio-details button.open-folder-btn:hover {
+    background: linear-gradient(135deg, #3a02d6, #2a019b);
+    transform: translateY(-3px);
+}
+
+/* Efeito de clique */
+.patrimonio-details button:active,
+.patrimonio-details button.cancel-btn:active,
+.patrimonio-details button.open-folder-btn:active {
+    transform: translateY(0);
+}
+
+/* Estilos para o ícone de pasta */
+.open-folder-btn i {
+    font-size: 20px;
+    color: #fff;
+}
+
+/* Link de URL estilizado */
+.patrimonio-details a {
+    color: #007bff;
+    font-weight: bold;
+    text-decoration: none;
+    transition: color 0.3s ease;
+}
+
+.patrimonio-details a:hover {
+    color: #0056b3;
+    text-decoration: underline;
+}
+
+/* Responsividade */
+@media (max-width: 768px) {
+    .filters {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .filters input {
+        width: 100%;
+        margin-bottom: 10px;
+    }
+
+    .filters button {
+        width: 100%;
+    }
+
+    table {
+        font-size: 14px;
+    }
+
+    th, td {
+        padding: 10px;
+    }
+
+    .patrimonio-details th,
+    .patrimonio-details td {
+        display: block;
+        width: 100%;
+        text-align: left;
+    }
+
+    .patrimonio-details th {
+        border-radius: 6px 6px 0 0;
+    }
+
+    .patrimonio-details td {
+        border-radius: 0 0 6px 6px;
+    }
+}
+
+/* Estilos para organizar os campos de edição horizontalmente */
+.edit-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.edit-field {
+    flex: 1 1 45%; /* Faz com que as caixas de texto fiquem dispostas horizontalmente */
+    display: flex;
+    flex-direction: column;
+    width: calc(50% - 10px); /* Garante que as caixas ocupem metade da largura */
+}
+
+/* Garantindo a cor branca dentro de inputs e textareas */
+.edit-field input,
+.edit-field textarea {
+    padding: 12px; /* Aumenta o espaçamento interno */
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    background: transparent; /* Fundo transparente */
+    color: white !important; /* Força a cor do texto a ser branca */
+    font-size: 16px; /* Aumenta o tamanho da fonte */
+    width: 100%; /* Garantir que a caixa ocupe toda a largura disponível */
+    min-height: 40px; /* Aumenta a altura mínima */
+    resize: vertical; /* Permite redimensionamento vertical para textarea */
+}
+
+/* Garante que ao focar, a borda das caixas ganhe cor azul */
+.edit-field input:focus,
+.edit-field textarea:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+/* Estilos para os botões de ação */
+.btn {
+    flex: 1;
+    max-width: 250px;
+    padding: 12px;
+    background: linear-gradient(135deg, #4502f8, #3a02d6);
+    color: #fff;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px;
+    font-family: "Roboto", monospace;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background 0.3s, transform 0.2s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.btn:hover {
+    background: linear-gradient(135deg, #3a02d6, #2a019b);
+    transform: translateY(-3px);
+}
+
+.btn:active {
+    transform: translateY(0);
+}
+
+/* Estilos para centralizar os botões de salvar e cancelar */
+.edit-buttons {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 20px;
+}
+
+.edit-buttons .btn {
+    flex: 1;
+    max-width: 250px;
+    padding: 12px;
+    background: linear-gradient(135deg, #4502f8, #3a02d6);
+    color: #fff;
+    border: none;
+    border-radius: 25px;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    font-size: 16px;
+    font-family: "Roboto", monospace;
+    font-weight: 600;
+    text-transform: uppercase;
+    transition: background 0.3s, transform 0.2s;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.edit-buttons .btn:hover {
+    background: linear-gradient(135deg, #3a02d6, #2a019b);
+    transform: translateY(-3px);
+}
+
+.edit-buttons .btn:active {
+    transform: translateY(0);
+}
+
+/* Estilos para o botão com o texto "Anexos" */
+.open-folder-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 95px; /* Ajuste a largura do botão */
+    max-width: 150px; /* Defina uma largura máxima */
+}
+
+.open-folder-btn i {
+    font-size: 24px;
+    color: #fff;
+    transition: color 0.3s;
+}
+
+.open-folder-btn:hover i {
+    color: #007bff;
+}
+
+.dropdown {
+    appearance: none; /* Remove o estilo padrão do sistema */
+    cursor: pointer;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: white;
+    padding: 10px;
+    border-radius: 10px;
+    font-family: "Roboto", monospace;
+    font-size: 18px;
+    width: 310px;
+    background: #333; /* Fundo cinza */
+    transition: 0.3s ease;
+}
+
+.dropdown:focus {
+    border-color: #007bff;
+    outline: none;
+}
+
+/* Personaliza a lista de opções quando o select está aberto */
+.dropdown option {
+    background-color: #222; /* Fundo escuro */
+    color: white; /* Texto branco */
+    padding: 10px;
+}
+
+.dropdown {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    font-size: 18px;
+    background: transparent; /* Fundo transparente */
+    color: white; /* Cor das letras para branco */
+    transition: 0.3s ease;
+    width: 550px; /* Ajustar a largura do dropdown */
+    height: 44px; /* Ajustar a altura do dropdown */
+    
+}
+
+.dropdown:focus {
+    border-color: #007bff;
+    outline: none;
+}
