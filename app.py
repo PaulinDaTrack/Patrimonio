@@ -5,6 +5,10 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import shutil  # Adicionado para manipulação de arquivos e diretórios
+from dotenv import load_dotenv  # Adicionado para carregar variáveis de ambiente
+import json  # Adicionado para manipulação de JSON
+
+load_dotenv()  # Carregar variáveis de ambiente do arquivo .env
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Adicione uma chave secreta para a sessão
@@ -12,13 +16,14 @@ app.secret_key = 'your_secret_key'  # Adicione uma chave secreta para a sessão
 # Configure suas credenciais de forma segura
 DB_HOST = os.getenv('DB_HOST')
 DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')  # ⚠️ Altere imediatamente!
+DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_NAME = os.getenv('DB_NAME')
 
-# Carregar credenciais do Google Drive
-GOOGLE_DRIVE_CREDENTIALS = 'c:/Users/Paulo/Desktop/Python/Patrimonio/single-cirrus-450717-f3-6f403d2526e6.json'
+# Carregar credenciais do Google Drive a partir de uma variável de ambiente
+GOOGLE_DRIVE_CREDENTIALS_JSON = os.getenv('GOOGLE_DRIVE_CREDENTIALS_JSON')
+credentials_info = json.loads(GOOGLE_DRIVE_CREDENTIALS_JSON)
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
-credentials = service_account.Credentials.from_service_account_file(GOOGLE_DRIVE_CREDENTIALS, scopes=SCOPES)
+credentials = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
 drive_service = build('drive', 'v3', credentials=credentials)
 
 # ID da pasta do Google Drive
@@ -129,21 +134,22 @@ def cadastrar():
     etiqueta_folder_id = create_folder_if_not_exists(etiqueta, FOLDER_ID)
     folder_url = f"https://drive.google.com/drive/folders/{etiqueta_folder_id}"
 
-    # Upload dos anexos para a pasta da etiqueta no Google Drive
-    for anexo in anexos:
-        if anexo:
-            anexo_path = os.path.join(tmp_dir, anexo.filename)
-            anexo.save(anexo_path)
-            file_metadata = {
-                'name': anexo.filename,
-                'parents': [etiqueta_folder_id]
-            }
-            media = MediaFileUpload(anexo_path, mimetype=anexo.content_type)
-            drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-
-    # Remover arquivos temporários após o upload
-    shutil.rmtree(tmp_dir)
-    os.makedirs(tmp_dir)
+    try:
+        # Upload dos anexos para a pasta da etiqueta no Google Drive
+        for anexo in anexos:
+            if anexo:
+                anexo_path = os.path.join(tmp_dir, anexo.filename)
+                anexo.save(anexo_path)
+                file_metadata = {
+                    'name': anexo.filename,
+                    'parents': [etiqueta_folder_id]
+                }
+                media = MediaFileUpload(anexo_path, mimetype=anexo.content_type)
+                drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+    finally:
+        # Remover arquivos temporários após o upload
+        shutil.rmtree(tmp_dir)
+        os.makedirs(tmp_dir)
 
     cursor.execute("""
         INSERT INTO patrimonios (nome, colaborador, colaborador2, etiqueta, especificacao, estado, valor, observacao, url)
