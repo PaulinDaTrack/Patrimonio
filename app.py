@@ -7,11 +7,13 @@ from googleapiclient.http import MediaFileUpload
 import shutil  # Adicionado para manipulação de arquivos e diretórios
 from dotenv import load_dotenv  # Adicionado para carregar variáveis de ambiente
 import json  # Adicionado para manipulação de JSON
+from datetime import timedelta  # Adicionado para definir a duração da sessão
 
 load_dotenv()  # Carregar variáveis de ambiente do arquivo .env
 
 app = Flask(__name__)
 app.secret_key = 'your_secret_key'  # Adicione uma chave secreta para a sessão
+app.permanent_session_lifetime = timedelta(hours=1)  # Definir duração da sessão para 1 hora
 
 # Configure suas credenciais de forma segura
 DB_HOST = os.getenv('DB_HOST')
@@ -56,6 +58,12 @@ def create_folder_if_not_exists(folder_name, parent_id):
         return folder.get('id')
     else:
         return response['files'][0]['id']
+
+@app.before_request
+def before_request():
+    session.permanent = True
+    if 'user' not in session and request.endpoint not in ['login', 'static']:
+        return redirect(url_for('login'))
 
 @app.route('/autocomplete_colaboradores')
 def autocomplete_colaboradores():
