@@ -100,14 +100,20 @@ def autocomplete_etiquetas():
 
 @app.route('/')
 def index():
+    if 'user' not in session:
+        return redirect(url_for('login'))
     return render_template('index.html')
 
 @app.route('/cadastrar_patrimonio')
 def cadastrar_patrimonio():
+    if 'user' not in session:
+        return redirect(url_for('login'))
     return render_template('cadastro.html')
 
 @app.route('/listar_patrimonios')
 def listar_patrimonios():
+    if 'user' not in session:
+        return redirect(url_for('login'))
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM patrimonios")
