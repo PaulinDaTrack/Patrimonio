@@ -127,49 +127,53 @@ def cadastrar():
     nome = request.form['nome']
     colaborador = request.form['colaborador']
     colaborador2 = request.form['colaborador2']
-    etiqueta = request.form['etiqueta']
     especificacao = request.form['especificacao']
     estado = request.form['estado']
     valor = request.form['valor']
     observacao = request.form['observacao']
     anexos = request.files.getlist('anexos')
+    etiquetas = request.form['etiqueta'].split(',')
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # Verificar se a etiqueta já existe
-    cursor.execute("SELECT COUNT(*) FROM patrimonios WHERE etiqueta = %s", (etiqueta,))
-    if cursor.fetchone()[0] > 0:
-        cursor.close()
-        conn.close()
-        return "Erro: Etiqueta já cadastrada!", 400
 
-    # Criar pasta da etiqueta se não existir
-    etiqueta_folder_id = create_folder_if_not_exists(etiqueta, FOLDER_ID)
-    folder_url = f"https://drive.google.com/drive/folders/{etiqueta_folder_id}"
+    for etiqueta in etiquetas:
+        etiqueta = etiqueta.strip()
 
-    try:
-        # Upload dos anexos para a pasta da etiqueta no Google Drive
-        for anexo in anexos:
-            if anexo:
-                anexo_path = os.path.join(tmp_dir, anexo.filename)
-                anexo.save(anexo_path)
-                file_metadata = {
-                    'name': anexo.filename,
-                    'parents': [etiqueta_folder_id]
-                }
-                media = MediaFileUpload(anexo_path, mimetype=anexo.content_type)
-                drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
-    finally:
-        # Remover arquivos temporários após o upload
-        shutil.rmtree(tmp_dir)
-        os.makedirs(tmp_dir)
+        # Verificar se a etiqueta já existe
+        cursor.execute("SELECT COUNT(*) FROM patrimonios WHERE etiqueta = %s", (etiqueta,))
+        if cursor.fetchone()[0] > 0:
+            cursor.close()
+            conn.close()
+            return f"Erro: Etiqueta {etiqueta} já cadastrada!", 400
 
-    cursor.execute("""
-        INSERT INTO patrimonios (nome, colaborador, colaborador2, etiqueta, especificacao, estado, valor, observacao, url)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """, (nome, colaborador, colaborador2, etiqueta, especificacao, estado, valor, observacao, folder_url))
-    conn.commit()
+        # Criar pasta da etiqueta se não existir
+        etiqueta_folder_id = create_folder_if_not_exists(etiqueta, FOLDER_ID)
+        folder_url = f"https://drive.google.com/drive/folders/{etiqueta_folder_id}"
+
+        try:
+            # Upload dos anexos para a pasta da etiqueta no Google Drive
+            for anexo in anexos:
+                if (anexo):
+                    anexo_path = os.path.join(tmp_dir, anexo.filename)
+                    anexo.save(anexo_path)
+                    file_metadata = {
+                        'name': anexo.filename,
+                        'parents': [etiqueta_folder_id]
+                    }
+                    media = MediaFileUpload(anexo_path, mimetype=anexo.content_type)
+                    drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+        finally:
+            # Remover arquivos temporários após o upload
+            shutil.rmtree(tmp_dir)
+            os.makedirs(tmp_dir)
+
+        cursor.execute("""
+            INSERT INTO patrimonios (nome, colaborador, colaborador2, etiqueta, especificacao, estado, valor, observacao, url)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (nome, colaborador, colaborador2, etiqueta, especificacao, estado, valor, observacao, folder_url))
+        conn.commit()
+
     cursor.close()
     conn.close()
 
