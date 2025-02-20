@@ -14,12 +14,18 @@
     <div class="container">
         <header>
             <h1>Lista de Patrimônios</h1>
+            <div class="summary">
+                <p>Total de Patrimônios: {{ total_patrimonios }}</p>
+                <p>Valor Total: R$ {{ valor_total }}</p>
+            </div>
         </header>
         <div class="filters">
             <label for="filter-nome">Nome:</label>
             <input type="text" id="filter-nome" class="autocomplete-nome">
             <label for="filter-etiqueta">Etiqueta:</label>
             <input type="text" id="filter-etiqueta" class="autocomplete-etiqueta">
+            <label for="filter-colaborador">Colaborador:</label>
+            <input type="text" id="filter-colaborador" class="autocomplete-colaborador">
             <button id="apply-filters">Aplicar Filtros</button>
         </div>
         <table>
@@ -28,6 +34,8 @@
                     <th>ID</th>
                     <th>Nome</th>
                     <th>Etiqueta</th>
+                    <th>Colaborador</th>
+                    <th>Valor (R$)</th>
                     <th>Observação</th>
                     <th>Ações</th>
                 </tr>
@@ -38,11 +46,13 @@
                     <td>{{ patrimonio[0] }}</td>
                     <td>{{ patrimonio[1] }}</td>
                     <td>{{ patrimonio[4] }}</td>
+                    <td>{{ patrimonio[2] }}</td>
+                    <td>{{ patrimonio[7] }}</td>
                     <td>{{ patrimonio[8] }}</td>
                     <td><button class="btn edit-btn">Editar</button></td>
                 </tr>
                 <tr class="patrimonio-details" id="details-{{ patrimonio[0] }}" style="display: none;">
-                    <td colspan="5">
+                    <td colspan="7">
                         <form class="edit-form">
                             <div class="edit-fields">
                                 <div class="edit-field">
@@ -149,14 +159,17 @@
             $('#apply-filters').on('click', function() {
                 var nome = $('#filter-nome').val().toLowerCase();
                 var etiqueta = $('#filter-etiqueta').val().toLowerCase();
+                var colaborador = $('#filter-colaborador').val().toLowerCase();
 
                 $('#patrimonios-tbody tr.patrimonio-row').each(function() {
                     var row = $(this);
                     var rowNome = row.find('td:eq(1)').text().toLowerCase();
                     var rowEtiqueta = row.find('td:eq(2)').text().toLowerCase();
+                    var rowColaborador = row.find('td:eq(3)').text().toLowerCase();
 
                     if ((nome === "" || rowNome.includes(nome)) &&
-                        (etiqueta === "" || rowEtiqueta.includes(etiqueta))) {
+                        (etiqueta === "" || rowEtiqueta.includes(etiqueta)) &&
+                        (colaborador === "" || rowColaborador.includes(colaborador))) {
                         row.show();
                         row.next('.patrimonio-details').show();
                     } else {

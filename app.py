@@ -8,6 +8,7 @@ import shutil  # Adicionado para manipulação de arquivos e diretórios
 from dotenv import load_dotenv  # Adicionado para carregar variáveis de ambiente
 import json  # Adicionado para manipulação de JSON
 from datetime import timedelta  # Adicionado para definir a duração da sessão
+from apscheduler.schedulers.background import BackgroundScheduler  # Adicionado para agendamento de tarefas
 
 load_dotenv()  # Carregar variáveis de ambiente do arquivo .env
 
@@ -59,6 +60,31 @@ def create_folder_if_not_exists(folder_name, parent_id):
     else:
         return response['files'][0]['id']
 
+def create_index():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT COUNT(1) IndexIsThere
+        FROM INFORMATION_SCHEMA.STATISTICS
+        WHERE table_schema=DATABASE() AND table_name='colaboradores' AND index_name='idx_colaborador'
+    """)
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("CREATE INDEX idx_colaborador ON colaboradores (colaborador)")
+        conn.commit()
+    cursor.close()
+    conn.close()
+
+# Chame a função create_index ao iniciar o aplicativo
+create_index()
+
+# Carregar colaboradores de um arquivo JSON
+def load_colaboradores():
+    global colaboradores
+    with open('colaboradores.json', 'r') as f:
+        colaboradores = json.load(f)
+
+load_colaboradores()
+
 @app.before_request
 def before_request():
     session.permanent = True
@@ -67,14 +93,9 @@ def before_request():
 
 @app.route('/autocomplete_colaboradores')
 def autocomplete_colaboradores():
-    term = request.args.get('term')
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT colaborador FROM colaboradores WHERE colaborador LIKE %s", (f"%{term}%",))
-    results = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    return jsonify([row[0] for row in results])
+    term = request.args.get('term').lower()
+    results = [colaborador for colaborador in colaboradores if term in colaborador.lower()]
+    return jsonify(results)
 
 @app.route('/autocomplete_nomes')
 def autocomplete_nomes():
@@ -118,9 +139,15 @@ def listar_patrimonios():
     cursor = conn.cursor()
     cursor.execute("SELECT * FROM patrimonios")
     patrimonios = cursor.fetchall()
+    
+    cursor.execute("SELECT SUM(valor) FROM patrimonios")
+    valor_total = cursor.fetchone()[0] or 0
+    
+    total_patrimonios = len(patrimonios)
+    
     cursor.close()
     conn.close()
-    return render_template('listar.html', patrimonios=patrimonios)
+    return render_template('listar.html', patrimonios=patrimonios, valor_total=valor_total, total_patrimonios=total_patrimonios)
 
 @app.route('/cadastrar', methods=['POST'])
 def cadastrar():
@@ -225,6 +252,28 @@ def login():
             error = "Erro: Credenciais inválidas!"
     
     return render_template('login.html', error=error)
+
+@app.route('/atualizar_colaboradores')
+def atualizar_colaboradores():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT colaborador FROM colaboradores")
+    results = cursor.fetchall()
+    cursor.close()
+    conn.close()
+    
+    colaboradores = [row[0] for row in results]
+    
+    with open('colaboradores.json', 'w', encoding='utf-8') as f:
+        json.dump(colaboradores, f, ensure_ascii=False, indent=4)
+    
+    load_colaboradores()
+    return 'Colaboradores atualizados com sucesso', 200
+
+# Configurar o agendador para atualizar a lista de colaboradores diariamente
+scheduler = BackgroundScheduler()
+scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
+scheduler.start()
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
