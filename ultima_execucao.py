@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import mysql.connector
-from datetime import datetime
+from datetime import datetime, timezone, timedelta  # Adicionado timezone e timedelta
 
 # Debug: confirmar as variáveis do banco
 print("POWERBI_DB_HOST:", os.getenv("POWERBI_DB_HOST"))
@@ -40,7 +40,8 @@ def atualizar_ultima_execucao():
     VALUES (1, %s)
     ON DUPLICATE KEY UPDATE last_execution = VALUES(last_execution)
     """
-    current_time = datetime.now()
+    # Obter horário atual no fuso UTC-1
+    current_time = datetime.now(timezone(timedelta(hours=-1)))
     cursor.execute(upsert_query, (current_time,))
     
     conn.commit()

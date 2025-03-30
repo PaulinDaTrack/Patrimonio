@@ -5,12 +5,13 @@ load_dotenv()
 import requests
 import json
 import mysql.connector
-from datetime import datetime
+from datetime import datetime, timezone, timedelta  # Adicionado timezone e timedelta
 from authtoken import obter_token
 
 def routeviolation():
-    # Calcula a data de hoje
-    hoje = datetime.utcnow().date().isoformat()
+    # Obter horário atual no fuso UTC-1 e extrair a data
+    current_time = datetime.now(timezone(timedelta(hours=-1)))
+    hoje = current_time.date().isoformat()
     initial_date = f"{hoje}T00:00:00.000Z"
     final_date   = f"{hoje}T23:59:59.999Z"
     
