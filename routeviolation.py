@@ -10,8 +10,8 @@ from authtoken import obter_token
 import pytz  # novo para conversão de fuso
 
 def routeviolation():
-    parana_tz = pytz.timezone("America/Curitiba")  # definir fuso de Curitiba
-    current_time = datetime.now(parana_tz)  # horário em Curitiba
+    parana_tz = pytz.timezone("America/Sao_Paulo")  # Alterado para timezone reconhecido
+    current_time = datetime.now(parana_tz)  # horário em São Paulo
     hoje = current_time.date().isoformat()
     initial_date = f"{hoje}T00:00:00.000Z"
     final_date   = f"{hoje}T23:59:59.999Z"

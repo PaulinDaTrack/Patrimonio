@@ -35,8 +35,8 @@ def processar_grid():
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-    # Obter a data de hoje com o fuso de Curitiba
-    today_date = datetime.datetime.now(pytz.timezone("America/Curitiba")).strftime("%d/%m/%Y")
+    # Obter a data de hoje com o fuso de São Paulo
+    today_date = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).strftime("%d/%m/%Y")
     effective_date_iso = to_iso(today_date)
     payload = [
         {

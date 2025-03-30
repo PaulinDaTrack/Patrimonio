@@ -41,8 +41,8 @@ def atualizar_ultima_execucao():
     VALUES (1, %s)
     ON DUPLICATE KEY UPDATE last_execution = VALUES(last_execution)
     """
-    parana_tz = pytz.timezone("America/Curitiba")  # definir fuso de Curitiba
-    current_time = datetime.now(parana_tz)  # usar horário de Curitiba
+    parana_tz = pytz.timezone("America/Sao_Paulo")  # Alterado para timezone reconhecido
+    current_time = datetime.now(parana_tz)  # usar horário de São Paulo
     cursor.execute(upsert_query, (current_time,))
     
     conn.commit()
