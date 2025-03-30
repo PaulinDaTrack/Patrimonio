@@ -10,6 +10,11 @@ import json  # Adicionado para manipulação de JSON
 from datetime import timedelta  # Adicionado para definir a duração da sessão
 from apscheduler.schedulers.background import BackgroundScheduler  # Adicionado para agendamento de tarefas
 
+# Novos imports da main.py
+from grid import processar_grid
+from ultima_execucao import atualizar_ultima_execucao
+from routeviolation import routeviolation
+
 load_dotenv()  # Carregar variáveis de ambiente do arquivo .env
 
 app = Flask(__name__)
@@ -273,6 +278,9 @@ def atualizar_colaboradores():
 # Configurar o agendador para atualizar a lista de colaboradores diariamente
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
+
+# Novo job para executar funções integradas a cada 10 minutos
+scheduler.add_job(func=lambda: (processar_grid(), atualizar_ultima_execucao(), routeviolation()), trigger="interval", minutes=10)
 scheduler.start()
 
 if __name__ == '__main__':
