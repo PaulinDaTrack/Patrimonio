@@ -5,7 +5,8 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import mysql.connector
-from datetime import datetime, timezone, timedelta  # Adicionado timezone e timedelta
+from datetime import datetime
+import pytz  # novo para conversão de fuso
 
 # Debug: confirmar as variáveis do banco
 print("POWERBI_DB_HOST:", os.getenv("POWERBI_DB_HOST"))
@@ -40,8 +41,8 @@ def atualizar_ultima_execucao():
     VALUES (1, %s)
     ON DUPLICATE KEY UPDATE last_execution = VALUES(last_execution)
     """
-    # Obter horário atual no fuso UTC-1
-    current_time = datetime.now(timezone(timedelta(hours=-1)))
+    parana_tz = pytz.timezone("America/Curitiba")  # definir fuso de Curitiba
+    current_time = datetime.now(parana_tz)  # usar horário de Curitiba
     cursor.execute(upsert_query, (current_time,))
     
     conn.commit()

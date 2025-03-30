@@ -5,6 +5,7 @@ load_dotenv()
 import requests
 import datetime
 import mysql.connector
+import pytz  # novo para conversão de fuso
 from authtoken import obter_token
 
 def format_date(date_str):
@@ -34,7 +35,8 @@ def processar_grid():
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-    today_date = datetime.datetime.today().strftime("%d/%m/%Y")
+    # Obter a data de hoje com o fuso de Curitiba
+    today_date = datetime.datetime.now(pytz.timezone("America/Curitiba")).strftime("%d/%m/%Y")
     effective_date_iso = to_iso(today_date)
     payload = [
         {

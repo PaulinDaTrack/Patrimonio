@@ -5,12 +5,13 @@ load_dotenv()
 import requests
 import json
 import mysql.connector
-from datetime import datetime, timezone, timedelta  # Adicionado timezone e timedelta
+from datetime import datetime  # Removido timezone e timedelta
 from authtoken import obter_token
+import pytz  # novo para conversão de fuso
 
 def routeviolation():
-    # Obter horário atual no fuso UTC-1 e extrair a data
-    current_time = datetime.now(timezone(timedelta(hours=-1)))
+    parana_tz = pytz.timezone("America/Curitiba")  # definir fuso de Curitiba
+    current_time = datetime.now(parana_tz)  # horário em Curitiba
     hoje = current_time.date().isoformat()
     initial_date = f"{hoje}T00:00:00.000Z"
     final_date   = f"{hoje}T23:59:59.999Z"
