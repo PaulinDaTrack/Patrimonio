@@ -7,6 +7,12 @@ load_dotenv()
 import mysql.connector
 from datetime import datetime
 
+# Debug: confirmar as variáveis do banco
+print("POWERBI_DB_HOST:", os.getenv("POWERBI_DB_HOST"))
+print("POWERBI_DB_USER:", os.getenv("POWERBI_DB_USER"))
+print("POWERBI_DB_PASSWORD:", os.getenv("POWERBI_DB_PASSWORD"))
+print("POWERBI_DB_NAME:", os.getenv("POWERBI_DB_NAME"))
+
 def atualizar_ultima_execucao():
     try:
         conn = mysql.connector.connect(
