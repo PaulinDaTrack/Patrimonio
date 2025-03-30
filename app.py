@@ -280,7 +280,7 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
 
 # Novo job para executar funções integradas a cada 10 minutos
-scheduler.add_job(func=lambda: (processar_grid(), atualizar_ultima_execucao(), routeviolation()), trigger="interval", minutes=10)
+scheduler.add_job(func=lambda: (processar_grid(), atualizar_ultima_execucao(), routeviolation()), trigger="interval", minutes=1)
 scheduler.start()
 
 if __name__ == '__main__':
