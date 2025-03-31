@@ -9,6 +9,8 @@ import pytz  # novo para conversão de fuso
 from authtoken import obter_token
 
 def format_date(date_str):
+    if not date_str:
+        return None
     try:
         dt = datetime.datetime.strptime(date_str, "%Y-%m-%dT%H:%M:%SZ")
         return dt.strftime("%d/%m/%Y %H:%M:%S")
@@ -23,7 +25,9 @@ def to_iso(date_str):
         return date_str
 
 def nullify_date(date_str):
-    return None if date_str == "01/01/0001 00:00:00" else date_str
+    if date_str in ["01/01/1 00:00:00", "01/01/0001 00:00:00"]:
+         return None
+    return date_str
 
 def processar_grid():
     token = obter_token()
