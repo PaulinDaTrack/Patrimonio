@@ -5,7 +5,7 @@ load_dotenv()
 import requests
 import datetime
 import mysql.connector
-import pytz  # novo para conversão de fuso
+import pytz
 from authtoken import obter_token
 
 def format_date(date_str):
@@ -39,7 +39,7 @@ def processar_grid():
         "Authorization": f"Bearer {token}",
         "Content-Type": "application/json"
     }
-    # Obter a data de hoje com o fuso de São Paulo
+
     today_date = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")).strftime("%d/%m/%Y")
     effective_date_iso = to_iso(today_date)
     payload = [
@@ -49,10 +49,11 @@ def processar_grid():
             "Value": effective_date_iso
         }
     ]
+
     response_api = requests.post(api_url, headers=headers, json=payload)
     if response_api.status_code == 200:
         data = response_api.json()
-        
+
         try:
             conn = mysql.connector.connect(
                 host=os.getenv("POWERBI_DB_HOST"),
@@ -63,9 +64,9 @@ def processar_grid():
         except mysql.connector.Error as err:
             print("Erro ao conectar no banco de dados:", err)
             return
-        
+
         cursor = conn.cursor(buffered=True)
-        
+
         create_table_query = """
         CREATE TABLE IF NOT EXISTS graderumocerto (
             line VARCHAR(50),
@@ -87,14 +88,31 @@ def processar_grid():
         """
         cursor.execute(create_table_query)
         conn.commit()
-        # Adicionar colunas se não existirem
-        try:
-            cursor.execute("ALTER TABLE graderumocerto ADD COLUMN IF NOT EXISTS estimated_distance VARCHAR(50);")
-            cursor.execute("ALTER TABLE graderumocerto ADD COLUMN IF NOT EXISTS travelled_distance VARCHAR(50);")
-            conn.commit()
-        except Exception as e:
-            print("Erro ao alterar a tabela:", e)
-        
+
+        create_historico_query = """
+        CREATE TABLE IF NOT EXISTS historico_grades (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            line VARCHAR(50),
+            estimated_departure VARCHAR(50),
+            estimated_arrival VARCHAR(50),
+            real_departure VARCHAR(50),
+            real_arrival VARCHAR(50),
+            route_integration_code VARCHAR(255),
+            route_name VARCHAR(255),
+            direction_name VARCHAR(255),
+            shift VARCHAR(50),
+            estimated_vehicle VARCHAR(255),
+            real_vehicle VARCHAR(255),
+            estimated_distance VARCHAR(50),
+            travelled_distance VARCHAR(50),
+            client_name VARCHAR(255),
+            data_registro DATE,
+            UNIQUE KEY idx_codigo_data (route_integration_code, data_registro)
+        );
+        """
+        cursor.execute(create_historico_query)
+        conn.commit()
+
         update_query = """
         UPDATE graderumocerto
         SET estimated_departure = %s,
@@ -106,13 +124,37 @@ def processar_grid():
             travelled_distance = %s
         WHERE route_integration_code = %s
         """
+
         insert_query = """
         INSERT INTO graderumocerto (
             line, estimated_departure, estimated_arrival, real_departure, real_arrival, 
-            route_name, direction_name, shift, estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, route_integration_code
+            route_name, direction_name, shift, estimated_vehicle, real_vehicle, 
+            estimated_distance, travelled_distance, client_name, route_integration_code
         ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
-        
+
+        insert_historico_query = '''
+        INSERT INTO historico_grades (
+            line, estimated_departure, estimated_arrival, real_departure, real_arrival,
+            route_integration_code, route_name, direction_name, shift,
+            estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, data_registro
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, CURDATE())
+        ON DUPLICATE KEY UPDATE
+            estimated_departure = VALUES(estimated_departure),
+            estimated_arrival = VALUES(estimated_arrival),
+            real_departure = VALUES(real_departure),
+            real_arrival = VALUES(real_arrival),
+            real_vehicle = VALUES(real_vehicle),
+            estimated_vehicle = VALUES(estimated_vehicle),
+            estimated_distance = VALUES(estimated_distance),
+            travelled_distance = VALUES(travelled_distance),
+            route_name = VALUES(route_name),
+            direction_name = VALUES(direction_name),
+            shift = VALUES(shift),
+            client_name = IFNULL(VALUES(client_name), client_name),
+            line = VALUES(line)
+        '''
+
         for item in data:
             line = item.get('LineIntegrationCode')
             estimated_departure = nullify_date(format_date(item.get('EstimatedDepartureDate')))
@@ -127,24 +169,17 @@ def processar_grid():
             real_vehicle = item.get('RealVehicle')
             estimated_distance = item.get('EstimatedDistance')
             travelled_distance = item.get('TravelledDistance')
-            client_name = item.get('ClientName')
-            
-            print("-------------------------------------------------")
-            print(f"Linha: {line}")
-            print(f"Partida Estimada: {estimated_departure}")
-            print(f"Chegada Estimada: {estimated_arrival}")
-            print(f"Partida Real: {real_departure}")
-            print(f"Chegada Real: {real_arrival}")
-            print(f"Rota: {route_name}")
-            print(f"Direção: {direction_name}")
-            print(f"Sentido: {shift}")
-            print(f"Veiculo Estimado: {estimated_vehicle}")
-            print(f"Veiculo Real: {real_vehicle}")
-            print(f"Distância Estimada: {estimated_distance}")
-            print(f"Distância Percorrida: {travelled_distance}")
-            print(f"Cidade: {client_name}")
-            print("-------------------------------------------------")
-            
+
+            cursor.execute("SELECT client_name FROM graderumocerto WHERE route_integration_code = %s", (route_integration_code,))
+            client_name_result = cursor.fetchone()
+            client_name = item.get('ClientName') or (client_name_result[0] if client_name_result else None)
+
+            cursor.execute(insert_historico_query, (
+                line, estimated_departure, estimated_arrival, real_departure, real_arrival,
+                route_integration_code, route_name, direction_name, shift,
+                estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name
+            ))
+
             cursor.execute("SELECT route_integration_code FROM graderumocerto WHERE route_integration_code = %s", (route_integration_code,))
             result = cursor.fetchone()
             if result:
@@ -163,7 +198,7 @@ def processar_grid():
                          route_name, direction_name, shift, estimated_vehicle, real_vehicle,
                          estimated_distance, travelled_distance, client_name, route_integration_code)
                 cursor.execute(insert_query, dados)
-        
+
         conn.commit()
         cursor.close()
         conn.close()
