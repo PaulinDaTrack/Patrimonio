@@ -11,6 +11,7 @@ import json  # Adicionado para manipulação de JSON
 from datetime import timedelta  # Adicionado para definir a duração da sessão
 from apscheduler.schedulers.background import BackgroundScheduler  # Adicionado para agendamento de tarefas
 import logging  # Adicionado para logs do APScheduler
+import time  # Adicionado para medir o tempo de execução
 
 # Novos imports da main.py
 from grid import processar_grid
@@ -284,17 +285,42 @@ def atualizar_colaboradores():
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
+# Função wrapper para medir o tempo de execução
+def log_execution_time(func):
+    def wrapper():
+        start_time = time.time()
+        func()
+        elapsed_time = time.time() - start_time
+        logging.info(f"Job {func.__name__} executado em {elapsed_time:.2f} segundos.")
+    return wrapper
+
 # Configurar o agendador para atualizar a lista de colaboradores diariamente
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
 
-# Novo job para executar funções integradas a cada 10 minutos
+# Dividir o job em três jobs separados
 scheduler.add_job(
-    func=lambda: (processar_grid(), atualizar_ultima_execucao(), routeviolation()),
+    func=log_execution_time(processar_grid),
     trigger="interval",
     minutes=10,
-    max_instances=1,  # Evitar execução concorrente
-    coalesce=True,    # Ignorar execuções acumuladas
+    max_instances=1,
+    coalesce=True,
+)
+
+scheduler.add_job(
+    func=log_execution_time(atualizar_ultima_execucao),
+    trigger="interval",
+    minutes=10,
+    max_instances=1,
+    coalesce=True,
+)
+
+scheduler.add_job(
+    func=log_execution_time(routeviolation),
+    trigger="interval",
+    minutes=10,
+    max_instances=1,
+    coalesce=True,
 )
 
 try:
