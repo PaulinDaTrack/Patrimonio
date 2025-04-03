@@ -53,91 +53,6 @@ def processar_grid():
 
     cursor = conn.cursor(buffered=True)
 
-    # Criação das tabelas
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS graderumocerto (
-        line VARCHAR(50),
-        estimated_departure VARCHAR(50),
-        estimated_arrival VARCHAR(50),
-        real_departure VARCHAR(50),
-        real_arrival VARCHAR(50),
-        route_integration_code VARCHAR(255) NOT NULL,
-        route_name VARCHAR(255),
-        direction_name VARCHAR(255),
-        shift VARCHAR(50),
-        estimated_vehicle VARCHAR(255),
-        real_vehicle VARCHAR(255),
-        estimated_distance VARCHAR(50),
-        travelled_distance VARCHAR(50),
-        client_name VARCHAR(255),
-        PRIMARY KEY (route_integration_code)
-    );
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS historico_grades (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        line VARCHAR(50),
-        estimated_departure VARCHAR(50),
-        estimated_arrival VARCHAR(50),
-        real_departure VARCHAR(50),
-        real_arrival VARCHAR(50),
-        route_integration_code VARCHAR(255),
-        route_name VARCHAR(255),
-        direction_name VARCHAR(255),
-        shift VARCHAR(50),
-        estimated_vehicle VARCHAR(255),
-        real_vehicle VARCHAR(255),
-        estimated_distance VARCHAR(50),
-        travelled_distance VARCHAR(50),
-        client_name VARCHAR(255),
-        data_registro DATE,
-        UNIQUE KEY idx_codigo_data (route_integration_code, data_registro)
-    );
-    """)
-    conn.commit()
-
-    update_query = """
-    UPDATE graderumocerto
-    SET estimated_departure = %s,
-        estimated_arrival = %s,
-        real_departure = %s,
-        real_arrival = %s,
-        real_vehicle = %s,
-        estimated_distance = %s,
-        travelled_distance = %s
-    WHERE route_integration_code = %s
-    """
-
-    insert_query = """
-    INSERT INTO graderumocerto (
-        line, estimated_departure, estimated_arrival, real_departure, real_arrival, 
-        route_name, direction_name, shift, estimated_vehicle, real_vehicle, 
-        estimated_distance, travelled_distance, client_name, route_integration_code
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    """
-
-    insert_historico_query = '''
-    INSERT INTO historico_grades (
-        line, estimated_departure, estimated_arrival, real_departure, real_arrival,
-        route_integration_code, route_name, direction_name, shift,
-        estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, data_registro
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-    ON DUPLICATE KEY UPDATE
-        estimated_departure = VALUES(estimated_departure),
-        estimated_arrival = VALUES(estimated_arrival),
-        real_departure = VALUES(real_departure),
-        real_arrival = VALUES(real_arrival),
-        real_vehicle = VALUES(real_vehicle),
-        estimated_vehicle = VALUES(estimated_vehicle),
-        estimated_distance = VALUES(estimated_distance),
-        travelled_distance = VALUES(travelled_distance),
-        route_name = VALUES(route_name),
-        direction_name = VALUES(direction_name),
-        shift = VALUES(shift),
-        client_name = IFNULL(VALUES(client_name), client_name),
-        line = VALUES(line)
-    '''
-
     dias_a_verificar = 3
     for i in range(dias_a_verificar):
         data_alvo = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")) - datetime.timedelta(days=i)
@@ -148,12 +63,12 @@ def processar_grid():
         response_api = requests.post(api_url, headers=headers, json=payload)
 
         if response_api.status_code != 200:
-            print(f"Erro na API para {data_formatada}: {response_api.status_code}")
+            print(f"Erro na requisição da API para {data_formatada}: {response_api.status_code}")
             continue
 
         data = response_api.json()
         if not data:
-            print(f"Nenhuma grade encontrada para {data_formatada}")
+            print(f"Sem dados para {data_formatada}")
             continue
 
         for item in data:
@@ -172,38 +87,86 @@ def processar_grid():
             travelled_distance = item.get('TravelledDistance')
 
             cursor.execute("SELECT client_name FROM graderumocerto WHERE route_integration_code = %s", (route_integration_code,))
-            client_name_result = cursor.fetchone()
-            client_name = item.get('ClientName') or (client_name_result[0] if client_name_result else None)
+            client_result = cursor.fetchone()
+            client_name = item.get('ClientName') or (client_result[0] if client_result else None)
 
-            cursor.execute(insert_historico_query, (
-                line, estimated_departure, estimated_arrival, real_departure, real_arrival,
-                route_integration_code, route_name, direction_name, shift,
-                estimated_vehicle, real_vehicle, estimated_distance, travelled_distance,
-                client_name, data_alvo.date()
-            ))
-            conn.commit()  # 🔒 Commit após inserção no histórico
+            # Historico
+            cursor.execute("""
+                SELECT id FROM historico_grades
+                WHERE route_integration_code = %s AND data_registro = %s
+            """, (route_integration_code, data_alvo.date()))
+            existe = cursor.fetchone()
 
+            if existe:
+                cursor.execute("""
+                    UPDATE historico_grades SET
+                        line = %s,
+                        estimated_departure = %s,
+                        estimated_arrival = %s,
+                        real_departure = %s,
+                        real_arrival = %s,
+                        route_name = %s,
+                        direction_name = %s,
+                        shift = %s,
+                        estimated_vehicle = %s,
+                        real_vehicle = %s,
+                        estimated_distance = %s,
+                        travelled_distance = %s,
+                        client_name = IFNULL(%s, client_name)
+                    WHERE route_integration_code = %s AND data_registro = %s
+                """, (
+                    line, estimated_departure, estimated_arrival, real_departure, real_arrival,
+                    route_name, direction_name, shift, estimated_vehicle, real_vehicle,
+                    estimated_distance, travelled_distance, client_name,
+                    route_integration_code, data_alvo.date()
+                ))
+            else:
+                cursor.execute("""
+                    INSERT INTO historico_grades (
+                        line, estimated_departure, estimated_arrival, real_departure, real_arrival,
+                        route_integration_code, route_name, direction_name, shift,
+                        estimated_vehicle, real_vehicle, estimated_distance, travelled_distance,
+                        client_name, data_registro
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
+                    line, estimated_departure, estimated_arrival, real_departure, real_arrival,
+                    route_integration_code, route_name, direction_name, shift,
+                    estimated_vehicle, real_vehicle, estimated_distance, travelled_distance,
+                    client_name, data_alvo.date()
+                ))
+
+            # Tabela principal
             cursor.execute("SELECT route_integration_code FROM graderumocerto WHERE route_integration_code = %s", (route_integration_code,))
             if cursor.fetchone():
-                cursor.execute(update_query, (
-                    estimated_departure,
-                    estimated_arrival,
-                    real_departure,
-                    real_arrival,
-                    real_vehicle,
-                    estimated_distance,
-                    travelled_distance,
+                cursor.execute("""
+                    UPDATE graderumocerto SET
+                        estimated_departure = %s,
+                        estimated_arrival = %s,
+                        real_departure = %s,
+                        real_arrival = %s,
+                        real_vehicle = %s,
+                        estimated_distance = %s,
+                        travelled_distance = %s
+                    WHERE route_integration_code = %s
+                """, (
+                    estimated_departure, estimated_arrival, real_departure,
+                    real_arrival, real_vehicle, estimated_distance, travelled_distance,
                     route_integration_code
                 ))
-                conn.commit()  # 🔄 Commit após UPDATE
             else:
-                cursor.execute(insert_query, (
+                cursor.execute("""
+                    INSERT INTO graderumocerto (
+                        line, estimated_departure, estimated_arrival, real_departure, real_arrival, 
+                        route_name, direction_name, shift, estimated_vehicle, real_vehicle, 
+                        estimated_distance, travelled_distance, client_name, route_integration_code
+                    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                """, (
                     line, estimated_departure, estimated_arrival, real_departure, real_arrival,
                     route_name, direction_name, shift, estimated_vehicle, real_vehicle,
                     estimated_distance, travelled_distance, client_name, route_integration_code
                 ))
-                conn.commit()  # ➕ Commit após INSERT
 
+        conn.commit()
         print(f"✅ Grades processadas para {data_formatada}")
 
     cursor.close()
