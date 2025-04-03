@@ -292,7 +292,7 @@ scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores')
 scheduler.add_job(
     func=lambda: (processar_grid(), atualizar_ultima_execucao(), routeviolation()),
     trigger="interval",
-    minutes=5,
+    minutes=10,
     max_instances=1,  # Evitar execução concorrente
     coalesce=True,    # Ignorar execuções acumuladas
 )
