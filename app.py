@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, jsonify, session
 import mysql.connector
+from mysql.connector import pooling
 import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
@@ -9,6 +10,7 @@ from dotenv import load_dotenv  # Adicionado para carregar variáveis de ambient
 import json  # Adicionado para manipulação de JSON
 from datetime import timedelta  # Adicionado para definir a duração da sessão
 from apscheduler.schedulers.background import BackgroundScheduler  # Adicionado para agendamento de tarefas
+import logging  # Adicionado para logs do APScheduler
 
 # Novos imports da main.py
 from grid import processar_grid
@@ -27,6 +29,18 @@ DB_USER = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_NAME = os.getenv('DB_NAME')
 
+# Configurar pool de conexões
+db_config = {
+    "host": DB_HOST,
+    "user": DB_USER,
+    "password": DB_PASSWORD,
+    "database": DB_NAME,
+}
+connection_pool = pooling.MySQLConnectionPool(pool_name="mypool", pool_size=10, **db_config)
+
+def get_db_connection():
+    return connection_pool.get_connection()  # Obter conexão do pool
+
 # Carregar credenciais do Google Drive a partir de uma variável de ambiente
 GOOGLE_DRIVE_CREDENTIALS_JSON = os.getenv('GOOGLE_DRIVE_CREDENTIALS_JSON')
 credentials_info = json.loads(GOOGLE_DRIVE_CREDENTIALS_JSON)
@@ -41,15 +55,6 @@ FOLDER_ID = '1hUe5xKP4krWcVVHd71kreLs81XqevsQY'
 tmp_dir = 'c:/Users/Paulo/Desktop/Python/Patrimonio/tmp'
 if not os.path.exists(tmp_dir):
     os.makedirs(tmp_dir)
-
-def get_db_connection():
-    conn = mysql.connector.connect(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-    )
-    return conn
 
 def create_folder_if_not_exists(folder_name, parent_id):
     query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}' and '{parent_id}' in parents"
@@ -275,13 +280,28 @@ def atualizar_colaboradores():
     load_colaboradores()
     return 'Colaboradores atualizados com sucesso', 200
 
+# Configurar logs do APScheduler
+logging.basicConfig(level=logging.INFO)
+logging.getLogger('apscheduler').setLevel(logging.DEBUG)
+
 # Configurar o agendador para atualizar a lista de colaboradores diariamente
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
 
 # Novo job para executar funções integradas a cada 10 minutos
-scheduler.add_job(func=lambda: (processar_grid(), atualizar_ultima_execucao(), routeviolation()), trigger="interval", minutes=10)
-scheduler.start()
+scheduler.add_job(
+    func=lambda: (processar_grid(), atualizar_ultima_execucao(), routeviolation()),
+    trigger="interval",
+    minutes=5,
+    max_instances=1,  # Evitar execução concorrente
+    coalesce=True,    # Ignorar execuções acumuladas
+)
+
+try:
+    scheduler.start()
+    logging.info("Agendador iniciado com sucesso.")
+except Exception as e:
+    logging.error(f"Erro ao iniciar o agendador: {e}")
 
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0')
+    app.run(debug=True, use_reloader=False, host='0.0.0.0')  # Desativar reloader para evitar conflitos com o agendador

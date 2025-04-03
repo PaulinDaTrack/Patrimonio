@@ -156,6 +156,7 @@ def processar_grid():
             print(f"Nenhuma grade encontrada para {data_formatada}")
             continue
 
+        batch_data = []
         for item in data:
             line = item.get('LineIntegrationCode')
             estimated_departure = nullify_date(format_date(item.get('EstimatedDepartureDate')))
@@ -175,34 +176,28 @@ def processar_grid():
             client_name_result = cursor.fetchone()
             client_name = item.get('ClientName') or (client_name_result[0] if client_name_result else None)
 
-            cursor.execute(insert_historico_query, (
+            batch_data.append((
                 line, estimated_departure, estimated_arrival, real_departure, real_arrival,
                 route_integration_code, route_name, direction_name, shift,
                 estimated_vehicle, real_vehicle, estimated_distance, travelled_distance,
                 client_name, data_alvo.date()
             ))
-            conn.commit()  # 🔒 Commit após inserção no histórico
 
-            cursor.execute("SELECT route_integration_code FROM graderumocerto WHERE route_integration_code = %s", (route_integration_code,))
+        cursor.executemany(insert_historico_query, batch_data)
+        conn.commit()  # Commit único para o lote
+
+        for item in batch_data:
+            cursor.execute("SELECT route_integration_code FROM graderumocerto WHERE route_integration_code = %s", (item[5],))
             if cursor.fetchone():
                 cursor.execute(update_query, (
-                    estimated_departure,
-                    estimated_arrival,
-                    real_departure,
-                    real_arrival,
-                    real_vehicle,
-                    estimated_distance,
-                    travelled_distance,
-                    route_integration_code
+                    item[1], item[2], item[3], item[4], item[9], item[10], item[11], item[5]
                 ))
-                conn.commit()  # 🔄 Commit após UPDATE
             else:
                 cursor.execute(insert_query, (
-                    line, estimated_departure, estimated_arrival, real_departure, real_arrival,
-                    route_name, direction_name, shift, estimated_vehicle, real_vehicle,
-                    estimated_distance, travelled_distance, client_name, route_integration_code
+                    item[0], item[1], item[2], item[3], item[4], item[6], item[7], item[8], item[9], item[10],
+                    item[11], item[12], item[13], item[5]
                 ))
-                conn.commit()  # ➕ Commit após INSERT
+        conn.commit()  # Commit único após inserções e atualizações
 
         print(f"✅ Grades processadas para {data_formatada}")
 
