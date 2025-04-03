@@ -171,6 +171,3 @@ def processar_grid():
 
     cursor.close()
     conn.close()
-
-if __name__ == '__main__':
-    processar_grid()
