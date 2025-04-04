@@ -138,7 +138,7 @@ def processar_grid():
         line = VALUES(line)
     '''
 
-    dias_a_verificar = 3
+    dias_a_verificar = 7
     for i in range(dias_a_verificar):
         data_alvo = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")) - datetime.timedelta(days=i)
         data_formatada = data_alvo.strftime("%d/%m/%Y")
@@ -190,7 +190,7 @@ def processar_grid():
             cursor.execute("SELECT route_integration_code FROM graderumocerto WHERE route_integration_code = %s", (item[5],))
             if cursor.fetchone():
                 cursor.execute(update_query, (
-                    item[1], item[2], item[3], item[4], item[9], item[10], item[11], item[5]
+                    item[1], item[2], item[3], item[4], item[10], item[11], item[12], item[5]
                 ))
             else:
                 cursor.execute(insert_query, (
