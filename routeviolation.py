@@ -3,7 +3,6 @@ from dotenv import load_dotenv
 load_dotenv()
 
 import requests
-import json
 import mysql.connector
 from datetime import datetime
 from authtoken import obter_token
@@ -30,7 +29,7 @@ def routeviolation():
         )
         cursor = conn.cursor()
 
-        # Cria tabela com id como chave primária
+        # Criação da tabela (não altera se já existir)
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS informacoes (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -38,7 +37,8 @@ def routeviolation():
                 RouteName VARCHAR(255),
                 Direction VARCHAR(255),
                 RealVehicle VARCHAR(255),
-                data_execucao DATE
+                data_execucao DATE,
+                UNIQUE (RouteName, data_execucao)
             )
         """)
 
@@ -66,29 +66,47 @@ def routeviolation():
             if isinstance(data, dict):
                 data = [data]
 
+            rotas_registradas = set()
             insert_data = []
+
             for item in data:
+                route_name = item.get("RouteName")
+                if not route_name:
+                    continue
+
+                chave = (route_name.strip().lower(), hoje)
+                if chave in rotas_registradas:
+                    continue  # Já registramos essa rota hoje
+
+                rotas_registradas.add(chave)
+
                 insert_data.append((
                     item.get("LineName"),
-                    item.get("RouteName"),
+                    route_name,
                     item.get("Direction"),
                     item.get("RealVehicle"),
                     hoje
                 ))
 
-            cursor.executemany("""
-                INSERT INTO informacoes (
-                    LineName, RouteName, Direction, RealVehicle, data_execucao
-                ) VALUES (%s, %s, %s, %s, %s)
-            """, insert_data)
-            conn.commit()
+            try:
+                cursor.executemany("""
+                    INSERT INTO informacoes (
+                        LineName, RouteName, Direction, RealVehicle, data_execucao
+                    ) VALUES (%s, %s, %s, %s, %s)
+                """, insert_data)
+                conn.commit()
+                print(f"✅ {len(insert_data)} violações salvas para {hoje}.")
 
-            print(f"✅ {len(insert_data)} violações salvas para {hoje}.")
+            except mysql.connector.Error as db_err:
+                if db_err.errno == 1062:
+                    print("⚠️ Algumas rotas já estavam salvas (duplicatas ignoradas).")
+                else:
+                    print("❌ Erro no banco de dados:", db_err)
 
         conn.close()
 
     except requests.exceptions.RequestException as e:
         print("❌ Erro na requisição:", e)
 
-    except mysql.connector.Error as db_err:
-        print("❌ Erro no banco de dados:", db_err)
+if __name__ == '__main__':
+    routeviolation()
