@@ -66,19 +66,12 @@ def routeviolation():
             if isinstance(data, dict):
                 data = [data]
 
-            rotas_registradas = set()
             insert_data = []
 
             for item in data:
                 route_name = item.get("RouteName")
                 if not route_name:
                     continue
-
-                chave = (route_name.strip().lower(), hoje)
-                if chave in rotas_registradas:
-                    continue  # Já registramos essa rota hoje
-
-                rotas_registradas.add(chave)
 
                 insert_data.append((
                     item.get("LineName"),
@@ -89,13 +82,14 @@ def routeviolation():
                 ))
 
             try:
-                cursor.executemany("""
-                    INSERT INTO informacoes (
-                        LineName, RouteName, Direction, RealVehicle, data_execucao
-                    ) VALUES (%s, %s, %s, %s, %s)
-                """, insert_data)
+                for record in insert_data:
+                    cursor.execute("""
+                        INSERT IGNORE INTO informacoes (
+                            LineName, RouteName, Direction, RealVehicle, data_execucao
+                        ) VALUES (%s, %s, %s, %s, %s)
+                    """, record)
                 conn.commit()
-                print(f"✅ {len(insert_data)} violações salvas para {hoje}.")
+                print(f"✅ {cursor.rowcount} violações salvas para {hoje}.")
 
             except mysql.connector.Error as db_err:
                 if db_err.errno == 1062:
