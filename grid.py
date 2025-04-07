@@ -156,6 +156,10 @@ def processar_grid():
             print(f"Nenhuma grade encontrada para {data_formatada}")
             continue
 
+        # Obter todos os códigos de integração existentes de uma vez
+        cursor.execute("SELECT route_integration_code, client_name FROM graderumocerto")
+        existing_routes = {row[0]: row[1] for row in cursor.fetchall()}
+
         batch_data = []
         for item in data:
             line = item.get('LineIntegrationCode')
@@ -172,9 +176,7 @@ def processar_grid():
             estimated_distance = item.get('EstimatedDistance')
             travelled_distance = item.get('TravelledDistance')
 
-            cursor.execute("SELECT client_name FROM graderumocerto WHERE route_integration_code = %s", (route_integration_code,))
-            client_name_result = cursor.fetchone()
-            client_name = item.get('ClientName') or (client_name_result[0] if client_name_result else None)
+            client_name = item.get('ClientName') or existing_routes.get(route_integration_code)
 
             batch_data.append((
                 line, estimated_departure, estimated_arrival, real_departure, real_arrival,
@@ -183,20 +185,28 @@ def processar_grid():
                 client_name, data_alvo.date()
             ))
 
+        # Inserir dados no histórico em lote
         cursor.executemany(insert_historico_query, batch_data)
         conn.commit()  # Commit único para o lote
 
+        # Atualizar ou inserir dados na tabela principal em lote
+        update_data = []
+        insert_data = []
         for item in batch_data:
-            cursor.execute("SELECT route_integration_code FROM graderumocerto WHERE route_integration_code = %s", (item[5],))
-            if cursor.fetchone():
-                cursor.execute(update_query, (
+            if item[5] in existing_routes:
+                update_data.append((
                     item[1], item[2], item[3], item[4], item[10], item[11], item[12], item[5]
                 ))
             else:
-                cursor.execute(insert_query, (
+                insert_data.append((
                     item[0], item[1], item[2], item[3], item[4], item[6], item[7], item[8], item[9], item[10],
                     item[11], item[12], item[13], item[5]
                 ))
+
+        if update_data:
+            cursor.executemany(update_query, update_data)
+        if insert_data:
+            cursor.executemany(insert_query, insert_data)
         conn.commit()  # Commit único após inserções e atualizações
 
         print(f"✅ Grades processadas para {data_formatada}")
