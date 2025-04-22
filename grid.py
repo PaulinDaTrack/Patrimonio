@@ -176,6 +176,20 @@ def processar_grid():
             estimated_distance = item.get('EstimatedDistance')
             travelled_distance = item.get('TravelledDistance')
 
+            # Verificar se travelled_distance é 0 e real_arrival está preenchido
+            if travelled_distance == '0' and real_arrival:
+                cursor.execute(
+                    """
+                    SELECT travelled_distance FROM historico_grades
+                    WHERE route_integration_code = %s AND travelled_distance != '0'
+                    ORDER BY data_registro DESC LIMIT 1
+                    """,
+                    (route_integration_code,)
+                )
+                result = cursor.fetchone()
+                if result:
+                    travelled_distance = result[0]
+
             client_name = item.get('ClientName') or existing_routes.get(route_integration_code)
 
             batch_data.append((
