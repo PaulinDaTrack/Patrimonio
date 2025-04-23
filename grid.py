@@ -176,8 +176,8 @@ def processar_grid():
             estimated_distance = item.get('EstimatedDistance')
             travelled_distance = item.get('TravelledDistance')
 
-            # Verificar se a grade já possui real_departure e real_arrival preenchidos
-            if real_departure and real_arrival:
+            # Verificar se a grade já possui real_arrival preenchido
+            if real_arrival:
                 continue
 
             # Verificar se travelled_distance é 0 e real_arrival está preenchido
