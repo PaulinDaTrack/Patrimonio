@@ -189,15 +189,18 @@ def processar_grid():
         cursor.executemany(insert_historico_query, batch_data)
         conn.commit()  # Commit único para o lote
 
-        # Atualizar ou inserir dados na tabela principal em lote
+        # Filtrar dados para não atualizar grades com real_arrival já válido
+        cursor.execute("SELECT route_integration_code FROM historico_grades WHERE real_arrival IS NOT NULL")
+        routes_with_real_arrival = {row[0] for row in cursor.fetchall()}
+
         update_data = []
         insert_data = []
         for item in batch_data:
-            if item[5] in existing_routes:
+            if item[5] in existing_routes and item[5] not in routes_with_real_arrival:
                 update_data.append((
                     item[1], item[2], item[3], item[4], item[10], item[11], item[12], item[5]
                 ))
-            else:
+            elif item[5] not in existing_routes:
                 insert_data.append((
                     item[0], item[1], item[2], item[3], item[4], item[6], item[7], item[8], item[9], item[10],
                     item[11], item[12], item[13], item[5]
