@@ -185,10 +185,10 @@ def processar_grid():
                 client_name, data_alvo.date()
             ))
 
-        # Filtrar grades que não precisam ser atualizadas
+        # Filtrar grades que não precisam ser atualizadas apenas se real_arrival estiver preenchido
         batch_data = [
             item for item in batch_data
-            if not (item[6] and item[4])  # route_name e real_arrival preenchidos
+            if not (item[4] and item[6])  # real_arrival preenchido e route_name não vazio
         ]
 
         if not batch_data:
