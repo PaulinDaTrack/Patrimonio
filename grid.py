@@ -185,6 +185,18 @@ def processar_grid():
                 client_name, data_alvo.date()
             ))
 
+        # Atualizar travelled_distance se real_arrival estiver preenchido e travelled_distance for 0
+        for i, item in enumerate(batch_data):
+            real_arrival = item[4]
+            travelled_distance = item[12]
+            estimated_distance = item[11]
+
+            if real_arrival and travelled_distance == 0:
+                batch_data[i] = (
+                    item[0], item[1], item[2], item[3], item[4], item[5], item[6], item[7], item[8], item[9],
+                    item[10], estimated_distance, estimated_distance, item[13], item[14]
+                )
+
         # Filtrar grades que não precisam ser atualizadas apenas se real_arrival estiver preenchido
         batch_data = [
             item for item in batch_data
