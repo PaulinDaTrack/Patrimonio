@@ -211,10 +211,10 @@ def processar_grid():
 
         print(f"✅ Grades processadas para {data_formatada}")
 
-    # Etapa para atualizar travelled_distance no banco de dados apenas para os últimos 7 dias
+    # Etapa para atualizar travelled_distance no banco de dados apenas para os últimos 7 dias processados
     update_travelled_distance_query = """
-    UPDATE graderumocerto
-    SET travelled_distance = estimated_distance
+    UPDATE historico_grades
+    SET travelled_distance = FLOOR(estimated_distance)
     WHERE real_arrival IS NOT NULL 
       AND travelled_distance = 0
       AND STR_TO_DATE(estimated_departure, '%d/%m/%Y %H:%i:%s') >= DATE_SUB(NOW(), INTERVAL 7 DAY);
