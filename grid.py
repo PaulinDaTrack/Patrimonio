@@ -185,28 +185,6 @@ def processar_grid():
                 client_name, data_alvo.date()
             ))
 
-        # Atualizar travelled_distance se real_arrival estiver preenchido e travelled_distance for 0
-        for i, item in enumerate(batch_data):
-            real_arrival = item[4]
-            travelled_distance = item[12]
-            estimated_distance = item[11]
-
-            if real_arrival and travelled_distance == 0:
-                batch_data[i] = (
-                    item[0], item[1], item[2], item[3], item[4], item[5], item[6], item[7], item[8], item[9],
-                    item[10], estimated_distance, estimated_distance, item[13], item[14]
-                )
-
-        # Filtrar grades que não precisam ser atualizadas apenas se real_arrival estiver preenchido
-        batch_data = [
-            item for item in batch_data
-            if not (item[4] and item[6])  # real_arrival preenchido e route_name não vazio
-        ]
-
-        if not batch_data:
-            print(f"⚠️ Nenhuma grade para atualizar em {data_formatada}")
-            continue
-
         # Inserir dados no histórico em lote
         cursor.executemany(insert_historico_query, batch_data)
         conn.commit()  # Commit único para o lote
@@ -232,6 +210,17 @@ def processar_grid():
         conn.commit()  # Commit único após inserções e atualizações
 
         print(f"✅ Grades processadas para {data_formatada}")
+
+    # Etapa para atualizar travelled_distance no banco de dados apenas para os últimos 7 dias
+    update_travelled_distance_query = """
+    UPDATE graderumocerto
+    SET travelled_distance = estimated_distance
+    WHERE real_arrival IS NOT NULL 
+      AND travelled_distance = 0
+      AND STR_TO_DATE(estimated_departure, '%d/%m/%Y %H:%i:%s') >= DATE_SUB(NOW(), INTERVAL 7 DAY);
+    """
+    cursor.execute(update_travelled_distance_query)
+    conn.commit()
 
     cursor.close()
     conn.close()
