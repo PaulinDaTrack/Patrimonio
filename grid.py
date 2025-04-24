@@ -176,10 +176,6 @@ def processar_grid():
             estimated_distance = item.get('EstimatedDistance')
             travelled_distance = item.get('TravelledDistance')
 
-            # Verificar se travelled_distance é 0 e real_arrival está preenchido
-            if travelled_distance == '0' and real_arrival:
-                travelled_distance = estimated_distance
-
             client_name = item.get('ClientName') or existing_routes.get(route_integration_code)
 
             batch_data.append((
@@ -188,6 +184,16 @@ def processar_grid():
                 estimated_vehicle, real_vehicle, estimated_distance, travelled_distance,
                 client_name, data_alvo.date()
             ))
+
+        # Filtrar grades que não precisam ser atualizadas
+        batch_data = [
+            item for item in batch_data
+            if not (item[6] and item[4])  # route_name e real_arrival preenchidos
+        ]
+
+        if not batch_data:
+            print(f"⚠️ Nenhuma grade para atualizar em {data_formatada}")
+            continue
 
         # Inserir dados no histórico em lote
         cursor.executemany(insert_historico_query, batch_data)
