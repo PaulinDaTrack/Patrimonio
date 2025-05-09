@@ -37,10 +37,18 @@ def routeviolation():
                 RouteName VARCHAR(255),
                 Direction VARCHAR(255),
                 RealVehicle VARCHAR(255),
+                url VARCHAR(512),
                 data_execucao DATE,
                 UNIQUE (RouteName, data_execucao)
             )
         """)
+
+        # Garante que a coluna 'url' existe
+        try:
+            cursor.execute("ALTER TABLE informacoes ADD COLUMN url VARCHAR(512)")
+        except mysql.connector.Error as err:
+            if err.errno != 1060:  # 1060 = Duplicate column name
+                raise
 
         initial_date = f"{hoje}T00:00:00.000Z"
         final_date = f"{hoje}T23:59:59.999Z"
@@ -73,11 +81,15 @@ def routeviolation():
                 if not route_name:
                     continue
 
+                original_url = item.get("URL", "")
+                url = original_url.replace("globalbus.com.br", "http://bus.systemsatx.com.br/") if original_url else None
+
                 insert_data.append((
                     item.get("LineName"),
                     route_name,
                     item.get("Direction"),
                     item.get("RealVehicle"),
+                    url,
                     hoje
                 ))
 
@@ -85,8 +97,8 @@ def routeviolation():
                 for record in insert_data:
                     cursor.execute("""
                         INSERT IGNORE INTO informacoes (
-                            LineName, RouteName, Direction, RealVehicle, data_execucao
-                        ) VALUES (%s, %s, %s, %s, %s)
+                            LineName, RouteName, Direction, RealVehicle, url, data_execucao
+                        ) VALUES (%s, %s, %s, %s, %s, %s)
                     """, record)
                 conn.commit()
                 print(f"✅ {cursor.rowcount} violações salvas para {hoje}.")
