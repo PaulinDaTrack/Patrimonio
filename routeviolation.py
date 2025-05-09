@@ -82,7 +82,7 @@ def routeviolation():
                     continue
 
                 original_url = item.get("URL", "")
-                url = original_url.replace("globalbus.com.br", "http://bus.systemsatx.com.br/") if original_url else None
+                url = original_url.replace("globalbus.com.br", "http://educacaorumocerto.trackland.com.br/") if original_url else None
 
                 insert_data.append((
                     item.get("LineName"),
