@@ -16,7 +16,7 @@ import time  # Adicionado para medir o tempo de execução
 # Novos imports da main.py
 from grid import processar_grid
 from ultima_execucao import atualizar_ultima_execucao
-from routeviolation import routeviolation
+from routeviolation import routeviolation, verificar_violações_por_velocidade
 
 load_dotenv()  # Carregar variáveis de ambiente do arquivo .env
 
@@ -294,6 +294,15 @@ def log_execution_time(func):
         logging.info(f"Job {func.__name__} executado em {elapsed_time:.2f} segundos.")
     return wrapper
 
+def routeviolation_completo():
+    from authtoken import obter_token
+    token = obter_token()
+    if token:
+        routeviolation(token)
+        verificar_violações_por_velocidade(token)
+    else:
+        print("❌ Não foi possível obter o token.")
+
 # Configurar o agendador para atualizar a lista de colaboradores diariamente
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
@@ -316,7 +325,7 @@ scheduler.add_job(
 )
 
 scheduler.add_job(
-    func=log_execution_time(routeviolation),
+    func=log_execution_time(routeviolation_completo),
     trigger="interval",
     minutes=10,
     max_instances=1,
