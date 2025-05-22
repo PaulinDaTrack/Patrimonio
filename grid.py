@@ -138,7 +138,7 @@ def processar_grid():
         line = VALUES(line)
     '''
 
-    dias_a_verificar = 7
+    dias_a_verificar = 30
     for i in range(dias_a_verificar):
         data_alvo = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")) - datetime.timedelta(days=i)
         data_formatada = data_alvo.strftime("%d/%m/%Y")
@@ -177,6 +177,8 @@ def processar_grid():
             travelled_distance = item.get('TravelledDistance')
 
             client_name = item.get('ClientName') or existing_routes.get(route_integration_code)
+            if client_name is not None:
+                client_name = client_name.strip()
 
             batch_data.append((
                 line, estimated_departure, estimated_arrival, real_departure, real_arrival,
@@ -189,8 +191,8 @@ def processar_grid():
         cursor.executemany(insert_historico_query, batch_data)
         conn.commit()  # Commit único para o lote
 
-        # Filtrar dados para não atualizar grades com real_arrival já válido
-        cursor.execute("SELECT route_integration_code FROM historico_grades WHERE real_arrival IS NOT NULL")
+        # Filtrar dados para não atualizar grades com real_arrival válido ou inválido (como 01/01/0001)
+        cursor.execute("SELECT route_integration_code FROM historico_grades WHERE real_arrival IS NOT NULL AND real_arrival != '01/01/0001'")
         routes_with_real_arrival = {row[0] for row in cursor.fetchall()}
 
         update_data = []
