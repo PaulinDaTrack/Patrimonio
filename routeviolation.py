@@ -9,6 +9,8 @@ from authtoken import obter_token
 import time
 from dateutil import parser
 import pytz
+from apscheduler.schedulers.background import BackgroundScheduler
+import atexit
 
 def routeviolation(token):
     parana_tz = pytz.timezone("America/Sao_Paulo")
@@ -110,6 +112,51 @@ def routeviolation(token):
     except requests.exceptions.RequestException as e:
         print("❌ Erro na requisição:", e)
 
+def refresh_mv():
+    try:
+        conn = mysql.connector.connect(
+            host=os.getenv("POWERBI_DB_HOST"),
+            database=os.getenv("POWERBI_DB_NAME"),
+            user=os.getenv("POWERBI_DB_USER"),
+            password=os.getenv("POWERBI_DB_PASSWORD")
+        )
+        cursor = conn.cursor()
+
+        print(f"🔄 Atualizando a Materialized View (MV) às {datetime.now()}...")
+
+        cursor.execute("TRUNCATE TABLE informacoes_com_cliente_mv;")
+
+        cursor.execute("""
+            INSERT INTO informacoes_com_cliente_mv
+            SELECT 
+                i.id,
+                i.LineName,
+                i.RouteName,
+                i.Direction,
+                i.RealVehicle,
+                i.data_execucao,
+                i.url,
+                i.violation_type,
+                g.client_name,
+                h.real_departure,
+                h.real_arrival,
+                h.id AS ID_GRADE
+            FROM 
+                u834686159_powerbi.informacoes i
+            JOIN 
+                u834686159_powerbi.graderumocerto g 
+                ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(g.route_name))
+            LEFT JOIN 
+                u834686159_powerbi.historico_grades h
+                ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(h.route_name))
+                AND i.data_execucao = h.data_registro;
+        """)
+        conn.commit()
+        print("✅ MV atualizada com sucesso.")
+        conn.close()
+
+    except Exception as e:
+        print(f"❌ Erro ao atualizar a MV: {e}")
 
 def verificar_violações_por_velocidade(token):
     def conectar_mysql():
@@ -161,10 +208,6 @@ def verificar_violações_por_velocidade(token):
 
             headers = {"Authorization": f"Bearer {token}"}
 
-            print(f"\n🚚 Verificando veículo: {vehicle_code}")
-            print("🔧 Payload enviado à API:")
-            print(payload)
-
             response = requests.post(
                 "https://integration.systemsatx.com.br/Controlws/HistoryPosition/List",
                 json=payload,
@@ -172,17 +215,13 @@ def verificar_violações_por_velocidade(token):
             )
 
             if response.status_code == 204:
-                #print(f"⚠️ API retornou 204 (sem posições) para {vehicle_code}")
                 continue
-
             elif response.status_code == 200 and response.content:
                 try:
                     positions = response.json()
-                except Exception as e:
-                    #print(f"⚠️ Erro ao interpretar JSON de {vehicle_code}: {e}")
+                except Exception:
                     continue
             else:
-                #print(f"❌ API retornou status {response.status_code} para {vehicle_code}")
                 continue
 
             violacao = "Desvio de Rota"
@@ -195,8 +234,7 @@ def verificar_violações_por_velocidade(token):
 
             try:
                 conn.ping(reconnect=True)
-            except Exception as e:
-                print(f"🔄 Reabrindo conexão com MySQL: {e}")
+            except Exception:
                 conn = conectar_mysql()
                 cursor = conn.cursor(dictionary=True)
 
@@ -214,7 +252,6 @@ def verificar_violações_por_velocidade(token):
                     WHERE id = %s
                 """, (violacao, row['id']))
                 conn.commit()
-                #print(f"✔️ Atualizado: {route_name} ➤ {violacao}")
             else:
                 print(f"❌ Linha não encontrada ➤ {route_name} ({data_execucao})")
 
@@ -226,11 +263,25 @@ def verificar_violações_por_velocidade(token):
 
     conn.close()
 
+def iniciar_agendador():
+    scheduler = BackgroundScheduler()
+    scheduler.add_job(refresh_mv, 'interval', hours=1, id='refresh_mv_job', next_run_time=datetime.now())
+    scheduler.start()
+    print("⏱️ Agendador de atualização da MV iniciado.")
+
+    atexit.register(lambda: scheduler.shutdown(wait=True))
 
 if __name__ == '__main__':
     token = obter_token()
     if token:
+        iniciar_agendador()
         routeviolation(token)
         verificar_violações_por_velocidade(token)
+
+        try:
+            while True:
+                time.sleep(60)
+        except (KeyboardInterrupt, SystemExit):
+            print("🛑 Encerrando o script...")
     else:
         print("❌ Não foi possível obter o token.")
