@@ -172,12 +172,14 @@ def verificar_violações_por_velocidade(token):
     conn = conectar_mysql()
     cursor = conn.cursor(dictionary=True)
 
-    batch_size = 100
+    batch_size = 10  # Reduzido para evitar timeout
     offset = 0
+    lote = 1
     while True:
+        print(f"🔹 Processando lote {lote} (offset {offset})...")
         cursor.execute("""
             SELECT RealVehicle, real_departure, real_arrival, RouteName, violation_type
-            FROM informacoes_com_cliente
+            FROM informacoes_com_cliente_mv
             WHERE real_departure IS NOT NULL AND real_arrival IS NOT NULL
             LIMIT %s OFFSET %s
         """, (batch_size, offset))
@@ -268,6 +270,7 @@ def verificar_violações_por_velocidade(token):
                 continue
 
         offset += batch_size
+        lote += 1
 
     conn.close()
 
@@ -282,10 +285,10 @@ def iniciar_agendador():
 if __name__ == '__main__':
     token = obter_token()
     if token:
-        iniciar_agendador()
+        refresh_mv()  # Atualiza a MV primeiro
         routeviolation(token)
         verificar_violações_por_velocidade(token)
-
+        iniciar_agendador()
         try:
             while True:
                 time.sleep(60)
