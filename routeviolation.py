@@ -172,94 +172,102 @@ def verificar_violações_por_velocidade(token):
     conn = conectar_mysql()
     cursor = conn.cursor(dictionary=True)
 
-    cursor.execute("""
-        SELECT RealVehicle, real_departure, real_arrival, RouteName, violation_type
-        FROM informacoes_com_cliente
-        WHERE real_departure IS NOT NULL AND real_arrival IS NOT NULL
-    """)
-    registros = cursor.fetchall()
+    batch_size = 100
+    offset = 0
+    while True:
+        cursor.execute("""
+            SELECT RealVehicle, real_departure, real_arrival, RouteName, violation_type
+            FROM informacoes_com_cliente
+            WHERE real_departure IS NOT NULL AND real_arrival IS NOT NULL
+            LIMIT %s OFFSET %s
+        """, (batch_size, offset))
+        registros = cursor.fetchall()
+        if not registros:
+            break
 
-    for reg in registros:
-        if reg.get('violation_type'):
-            print(f"⏩ Pulando {reg['RouteName']} ({reg['RealVehicle']}) — violação já registrada: {reg['violation_type']}")
-            continue
-
-        try:
-            vehicle_code = reg['RealVehicle']
-            start = reg['real_departure']
-            end = reg['real_arrival']
-            route_name = reg['RouteName']
-
-            if not (vehicle_code and start and end):
+        for reg in registros:
+            if reg.get('violation_type'):
+                print(f"⏩ Pulando {reg['RouteName']} ({reg['RealVehicle']}) — violação já registrada: {reg['violation_type']}")
                 continue
-
-            start_dt = parser.parse(start, dayfirst=True) if isinstance(start, str) else start
-            end_dt = parser.parse(end, dayfirst=True) if isinstance(end, str) else end
-
-            start_dt = parana_tz.localize(start_dt).astimezone(pytz.utc)
-            end_dt = parana_tz.localize(end_dt).astimezone(pytz.utc)
-
-            payload = {
-                "TrackedUnitType": 1,
-                "TrackedUnitIntegrationCode": vehicle_code,
-                "StartDatePosition": start_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-                "EndDatePosition": end_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
-            }
-
-            headers = {"Authorization": f"Bearer {token}"}
-
-            response = requests.post(
-                "https://integration.systemsatx.com.br/Controlws/HistoryPosition/List",
-                json=payload,
-                headers=headers
-            )
-
-            if response.status_code == 204:
-                continue
-            elif response.status_code == 200 and response.content:
-                try:
-                    positions = response.json()
-                except Exception:
-                    continue
-            else:
-                continue
-
-            violacao = "Desvio de Rota"
-            for pos in positions:
-                if pos.get("Velocity", 0) > 70:
-                    violacao = "Velocidade Excedida"
-                    break
-
-            data_execucao = start_dt.strftime('%Y-%m-%d')
 
             try:
-                conn.ping(reconnect=True)
-            except Exception:
-                conn = conectar_mysql()
-                cursor = conn.cursor(dictionary=True)
+                vehicle_code = reg['RealVehicle']
+                start = reg['real_departure']
+                end = reg['real_arrival']
+                route_name = reg['RouteName']
 
-            cursor.execute("""
-                SELECT id FROM informacoes
-                WHERE RouteName = %s AND data_execucao = %s
-                LIMIT 1
-            """, (route_name, data_execucao))
-            row = cursor.fetchone()
+                if not (vehicle_code and start and end):
+                    continue
 
-            if row:
+                start_dt = parser.parse(start, dayfirst=True) if isinstance(start, str) else start
+                end_dt = parser.parse(end, dayfirst=True) if isinstance(end, str) else end
+
+                start_dt = parana_tz.localize(start_dt).astimezone(pytz.utc)
+                end_dt = parana_tz.localize(end_dt).astimezone(pytz.utc)
+
+                payload = {
+                    "TrackedUnitType": 1,
+                    "TrackedUnitIntegrationCode": vehicle_code,
+                    "StartDatePosition": start_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "EndDatePosition": end_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                }
+
+                headers = {"Authorization": f"Bearer {token}"}
+
+                response = requests.post(
+                    "https://integration.systemsatx.com.br/Controlws/HistoryPosition/List",
+                    json=payload,
+                    headers=headers
+                )
+
+                if response.status_code == 204:
+                    continue
+                elif response.status_code == 200 and response.content:
+                    try:
+                        positions = response.json()
+                    except Exception:
+                        continue
+                else:
+                    continue
+
+                violacao = "Desvio de Rota"
+                for pos in positions:
+                    if pos.get("Velocity", 0) > 70:
+                        violacao = "Velocidade Excedida"
+                        break
+
+                data_execucao = start_dt.strftime('%Y-%m-%d')
+
+                try:
+                    conn.ping(reconnect=True)
+                except Exception:
+                    conn = conectar_mysql()
+                    cursor = conn.cursor(dictionary=True)
+
                 cursor.execute("""
-                    UPDATE informacoes
-                    SET violation_type = %s
-                    WHERE id = %s
-                """, (violacao, row['id']))
-                conn.commit()
-            else:
-                print(f"❌ Linha não encontrada ➤ {route_name} ({data_execucao})")
+                    SELECT id FROM informacoes
+                    WHERE RouteName = %s AND data_execucao = %s
+                    LIMIT 1
+                """, (route_name, data_execucao))
+                row = cursor.fetchone()
 
-            time.sleep(1)
+                if row:
+                    cursor.execute("""
+                        UPDATE informacoes
+                        SET violation_type = %s
+                        WHERE id = %s
+                    """, (violacao, row['id']))
+                    conn.commit()
+                else:
+                    print(f"❌ Linha não encontrada ➤ {route_name} ({data_execucao})")
 
-        except Exception as e:
-            print(f"💥 Erro inesperado na rota {reg.get('RouteName')} ({reg.get('RealVehicle')}): {e}")
-            continue
+                time.sleep(1)
+
+            except Exception as e:
+                print(f"💥 Erro inesperado na rota {reg.get('RouteName')} ({reg.get('RealVehicle')}): {e}")
+                continue
+
+        offset += batch_size
 
     conn.close()
 
