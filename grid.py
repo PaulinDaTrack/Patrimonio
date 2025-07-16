@@ -53,7 +53,6 @@ def processar_grid():
 
     cursor = conn.cursor(buffered=True)
 
-    # Criação das tabelas
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS graderumocerto (
         line VARCHAR(50),
@@ -156,7 +155,6 @@ def processar_grid():
             print(f"Nenhuma grade encontrada para {data_formatada}")
             continue
 
-        # Obter todos os códigos de integração existentes de uma vez
         cursor.execute("SELECT route_integration_code, client_name FROM graderumocerto")
         existing_routes = {row[0]: row[1] for row in cursor.fetchall()}
 
@@ -187,11 +185,9 @@ def processar_grid():
                 client_name, data_alvo.date()
             ))
 
-        # Inserir dados no histórico em lote
         cursor.executemany(insert_historico_query, batch_data)
-        conn.commit()  # Commit único para o lote
+        conn.commit()
 
-        # Filtrar dados para não atualizar grades com real_arrival válido ou inválido (como 01/01/0001)
         cursor.execute("SELECT route_integration_code FROM historico_grades WHERE real_arrival IS NOT NULL AND real_arrival != '01/01/0001'")
         routes_with_real_arrival = {row[0] for row in cursor.fetchall()}
 
@@ -212,11 +208,10 @@ def processar_grid():
             cursor.executemany(update_query, update_data)
         if insert_data:
             cursor.executemany(insert_query, insert_data)
-        conn.commit()  # Commit único após inserções e atualizações
+        conn.commit()
 
         print(f"✅ Grades processadas para {data_formatada}")
 
-    # Etapa para atualizar travelled_distance no banco de dados apenas para os últimos 7 dias processados
     update_travelled_distance_query = """
     UPDATE historico_grades
     SET travelled_distance = FLOOR(estimated_distance)

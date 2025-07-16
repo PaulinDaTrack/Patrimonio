@@ -2,7 +2,6 @@ import os
 from dotenv import load_dotenv
 load_dotenv()
 
-# Debug: confirmar carregamento das variáveis de ambiente
 print(f"SATX_USERNAME: {os.getenv('SATX_USERNAME')}")
 print(f"SATX_PASSWORD: {os.getenv('SATX_PASSWORD')}")
 
