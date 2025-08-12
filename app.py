@@ -295,6 +295,43 @@ def refresh_mv_job():
     elapsed_time = time.time() - start_time
     logging.info(f"Job refresh_mv executado em {elapsed_time:.2f} segundos.")
 
+# Novo job para executar as funções do tags.py a cada 2 horas
+def tags_job():
+    try:
+        from datetime import datetime
+        from authtoken import obter_token
+        # imports locais para evitar carregamento desnecessário no startup
+        from tags import (
+            criar_tabela_escola,
+            criar_tabela_veiculo,
+            criar_tabela_aluno,
+            consultar_api_escola,
+            consultar_api_veiculo,
+            preencher_tabela_aluno,
+            corrigir_ordem_em_toda_tabela_aluno,
+        )
+
+        data_ref = datetime.now()
+        token = obter_token()
+        if not token:
+            logging.error("tags_job: falha ao obter token.")
+            return
+
+        # Idempotente: garante tabelas
+        criar_tabela_escola()
+        criar_tabela_veiculo()
+        criar_tabela_aluno()
+
+        # Alimenta dados do dia corrente
+        consultar_api_escola(data_ref, token=token)
+        consultar_api_veiculo(data_ref, token=token)
+        preencher_tabela_aluno(data_ref)
+        corrigir_ordem_em_toda_tabela_aluno(data_ref.strftime('%Y-%m-%d'))
+
+        logging.info("tags_job concluído com sucesso.")
+    except Exception as e:
+        logging.exception(f"Erro no tags_job: {e}")
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
 
@@ -326,6 +363,15 @@ scheduler.add_job(
     func=refresh_mv_job,
     trigger="interval",
     minutes=10,
+    max_instances=1,
+    coalesce=True,
+)
+
+scheduler.add_job(
+    func=log_execution_time(tags_job),
+    trigger="cron",
+    minute=0,
+    hour="*/2",
     max_instances=1,
     coalesce=True,
 )
