@@ -5,32 +5,29 @@ import os
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
-import shutil  # Adicionado para manipulação de arquivos e diretórios
-from dotenv import load_dotenv  # Adicionado para carregar variáveis de ambiente
-import json  # Adicionado para manipulação de JSON
-from datetime import timedelta  # Adicionado para definir a duração da sessão
-from apscheduler.schedulers.background import BackgroundScheduler  # Adicionado para agendamento de tarefas
-import logging  # Adicionado para logs do APScheduler
-import time  # Adicionado para medir o tempo de execução
+import shutil
+from dotenv import load_dotenv
+import json
+from datetime import timedelta
+from apscheduler.schedulers.background import BackgroundScheduler
+import logging
+import time
 
-# Novos imports da main.py
 from grid import processar_grid
 from ultima_execucao import atualizar_ultima_execucao
 from routeviolation import routeviolation, verificar_violações_por_velocidade, refresh_mv
 
-load_dotenv()  # Carregar variáveis de ambiente do arquivo .env
+load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = 'your_secret_key'  # Adicione uma chave secreta para a sessão
-app.permanent_session_lifetime = timedelta(hours=1)  # Definir duração da sessão para 1 hora
+app.secret_key = 'your_secret_key'
+app.permanent_session_lifetime = timedelta(hours=1)
 
-# Configure suas credenciais de forma segura
 DB_HOST = os.getenv('DB_HOST')
 DB_USER = os.getenv('DB_USER')
 DB_PASSWORD = os.getenv('DB_PASSWORD')
 DB_NAME = os.getenv('DB_NAME')
 
-# Configurar pool de conexões
 db_config = {
     "host": DB_HOST,
     "user": DB_USER,
@@ -40,19 +37,16 @@ db_config = {
 connection_pool = pooling.MySQLConnectionPool(pool_name="mypool", pool_size=10, **db_config)
 
 def get_db_connection():
-    return connection_pool.get_connection()  # Obter conexão do pool
+    return connection_pool.get_connection()
 
-# Carregar credenciais do Google Drive a partir de uma variável de ambiente
 GOOGLE_DRIVE_CREDENTIALS_JSON = os.getenv('GOOGLE_DRIVE_CREDENTIALS_JSON')
 credentials_info = json.loads(GOOGLE_DRIVE_CREDENTIALS_JSON)
 SCOPES = ['https://www.googleapis.com/auth/drive.file']
 credentials = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
 drive_service = build('drive', 'v3', credentials=credentials)
 
-# ID da pasta do Google Drive
 FOLDER_ID = '1hUe5xKP4krWcVVHd71kreLs81XqevsQY'
 
-# Criar pasta temporária no início do script
 tmp_dir = 'c:/Users/Paulo/Desktop/Python/Patrimonio/tmp'
 if not os.path.exists(tmp_dir):
     os.makedirs(tmp_dir)
@@ -85,10 +79,8 @@ def create_index():
     cursor.close()
     conn.close()
 
-# Chame a função create_index ao iniciar o aplicativo
 create_index()
 
-# Carregar colaboradores de um arquivo JSON
 def load_colaboradores():
     global colaboradores
     with open('colaboradores.json', 'r') as f:
@@ -178,19 +170,16 @@ def cadastrar():
     for etiqueta in etiquetas:
         etiqueta = etiqueta.strip()
 
-        # Verificar se a etiqueta já existe
         cursor.execute("SELECT COUNT(*) FROM patrimonios WHERE etiqueta = %s", (etiqueta,))
         if cursor.fetchone()[0] > 0:
             cursor.close()
             conn.close()
             return f"Erro: Etiqueta {etiqueta} já cadastrada!", 400
 
-        # Criar pasta da etiqueta se não existir
         etiqueta_folder_id = create_folder_if_not_exists(etiqueta, FOLDER_ID)
         folder_url = f"https://drive.google.com/drive/folders/{etiqueta_folder_id}"
 
         try:
-            # Upload dos anexos para a pasta da etiqueta no Google Drive
             for anexo in anexos:
                 if (anexo):
                     anexo_path = os.path.join(tmp_dir, anexo.filename)
@@ -202,7 +191,6 @@ def cadastrar():
                     media = MediaFileUpload(anexo_path, mimetype=anexo.content_type)
                     drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
         finally:
-            # Remover arquivos temporários após o upload
             shutil.rmtree(tmp_dir)
             os.makedirs(tmp_dir)
 
@@ -281,11 +269,9 @@ def atualizar_colaboradores():
     load_colaboradores()
     return 'Colaboradores atualizados com sucesso', 200
 
-# Configurar logs do APScheduler
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
 
-# Função wrapper para medir o tempo de execução
 def log_execution_time(func):
     def wrapper():
         start_time = time.time()
@@ -309,11 +295,46 @@ def refresh_mv_job():
     elapsed_time = time.time() - start_time
     logging.info(f"Job refresh_mv executado em {elapsed_time:.2f} segundos.")
 
-# Configurar o agendador para atualizar a lista de colaboradores diariamente
+# Novo job para executar as funções do tags.py a cada 2 horas
+def tags_job():
+    try:
+        from datetime import datetime
+        from authtoken import obter_token
+        # imports locais para evitar carregamento desnecessário no startup
+        from tags import (
+            criar_tabela_escola,
+            criar_tabela_veiculo,
+            criar_tabela_aluno,
+            consultar_api_escola,
+            consultar_api_veiculo,
+            preencher_tabela_aluno,
+            corrigir_ordem_em_toda_tabela_aluno,
+        )
+
+        data_ref = datetime.now()
+        token = obter_token()
+        if not token:
+            logging.error("tags_job: falha ao obter token.")
+            return
+
+        # Idempotente: garante tabelas
+        criar_tabela_escola()
+        criar_tabela_veiculo()
+        criar_tabela_aluno()
+
+        # Alimenta dados do dia corrente
+        consultar_api_escola(data_ref, token=token)
+        consultar_api_veiculo(data_ref, token=token)
+        preencher_tabela_aluno(data_ref)
+        corrigir_ordem_em_toda_tabela_aluno(data_ref.strftime('%Y-%m-%d'))
+
+        logging.info("tags_job concluído com sucesso.")
+    except Exception as e:
+        logging.exception(f"Erro no tags_job: {e}")
+
 scheduler = BackgroundScheduler()
 scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
 
-# Dividir o job em três jobs separados
 scheduler.add_job(
     func=log_execution_time(processar_grid),
     trigger="interval",
@@ -346,6 +367,15 @@ scheduler.add_job(
     coalesce=True,
 )
 
+scheduler.add_job(
+    func=log_execution_time(tags_job),
+    trigger="cron",
+    minute=0,
+    hour="*/2",
+    max_instances=1,
+    coalesce=True,
+)
+
 try:
     scheduler.start()
     logging.info("Agendador iniciado com sucesso.")
@@ -353,4 +383,4 @@ except Exception as e:
     logging.error(f"Erro ao iniciar o agendador: {e}")
 
 if __name__ == '__main__':
-    app.run(debug=True, use_reloader=False, host='0.0.0.0')  # Desativar reloader para evitar conflitos com o agendador
+    app.run(debug=True, use_reloader=False, host='0.0.0.0')
