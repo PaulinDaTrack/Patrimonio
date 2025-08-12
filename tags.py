@@ -1,17 +1,26 @@
 def preencher_tabela_aluno(data_execucao):
     import pandas as pd
-    from sqlalchemy import create_engine
-    db_url = f"mysql+mysqlconnector://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}"
-    engine = create_engine(db_url)
     data_str = data_execucao.strftime('%Y-%m-%d')
-    veiculo_df = pd.read_sql(f"SELECT * FROM Veiculo WHERE DATE(Data_Execucao) = '{data_str}'", engine)
-    escola_df = pd.read_sql(f"SELECT * FROM Escola WHERE DATE(Data_Execucao) = '{data_str}'", engine)
+
+    # Usa o pool de conexão existente (mysql.connector) em vez de SQLAlchemy
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    cursor.execute("SELECT * FROM Veiculo WHERE Data_Execucao = %s", (data_str,))
+    veiculo_rows = cursor.fetchall()
+    cursor.execute("SELECT * FROM Escola WHERE Data_Execucao = %s", (data_str,))
+    escola_rows = cursor.fetchall()
+    cursor.close()
+
+    veiculo_df = pd.DataFrame(veiculo_rows) if veiculo_rows else pd.DataFrame()
+    escola_df = pd.DataFrame(escola_rows) if escola_rows else pd.DataFrame()
+
     if veiculo_df.empty and escola_df.empty:
-        engine.dispose()
+        conn.close()
         return
+
     alunos = sorted(set(veiculo_df['Matricula'].unique() if not veiculo_df.empty else []).union(
                     set(escola_df['Matricula'].unique() if not escola_df.empty else [])))
-    conn = get_db_connection()
+
     for matricula in alunos:
         veic_logs = veiculo_df[veiculo_df['Matricula'] == matricula].sort_values('EventDate') if not veiculo_df.empty else pd.DataFrame()
         escola_logs = escola_df[escola_df['Matricula'] == matricula].sort_values('EventDate') if not escola_df.empty else pd.DataFrame()
@@ -166,7 +175,6 @@ def preencher_tabela_aluno(data_execucao):
         cursor.close()
     conn.commit()
     conn.close()
-    engine.dispose()
 def criar_tabela_aluno():
     conn = get_db_connection()
     cursor = conn.cursor()
