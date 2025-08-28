@@ -192,23 +192,34 @@ def processar_grid():
         routes_with_real_arrival = {row[0] for row in cursor.fetchall()}
 
         update_data = []
-        insert_data = []
+        # use a dict to deduplicate inserts by route_integration_code
+        insert_map = {}
         for item in batch_data:
-            if item[5] in existing_routes and item[5] not in routes_with_real_arrival:
+            route_code = item[5]
+            if route_code in existing_routes and route_code not in routes_with_real_arrival:
                 update_data.append((
                     item[1], item[2], item[3], item[4], item[10], item[11], item[12], item[5]
                 ))
-            elif item[5] not in existing_routes:
-                insert_data.append((
-                    item[0], item[1], item[2], item[3], item[4], item[6], item[7], item[8], item[9], item[10],
-                    item[11], item[12], item[13], item[5]
-                ))
+            elif route_code not in existing_routes:
+                # keep the first occurrence (or override if you prefer last)
+                if route_code not in insert_map:
+                    insert_map[route_code] = (
+                        item[0], item[1], item[2], item[3], item[4], item[6], item[7], item[8], item[9], item[10],
+                        item[11], item[12], item[13], item[5]
+                    )
 
-        if update_data:
-            cursor.executemany(update_query, update_data)
-        if insert_data:
-            cursor.executemany(insert_query, insert_data)
-        conn.commit()
+        insert_data = list(insert_map.values())
+
+        try:
+            if update_data:
+                cursor.executemany(update_query, update_data)
+            if insert_data:
+                cursor.executemany(insert_query, insert_data)
+            conn.commit()
+        except mysql.connector.IntegrityError as e:
+            # Log the error and continue processing next date/batch
+            print(f"Erro de integridade ao inserir/atualizar: {e}")
+            conn.rollback()
 
         print(f"✅ Grades processadas para {data_formatada}")
 
