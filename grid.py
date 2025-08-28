@@ -137,7 +137,7 @@ def processar_grid():
         line = VALUES(line)
     '''
 
-    dias_a_verificar = 30
+    dias_a_verificar = 90
     for i in range(dias_a_verificar):
         data_alvo = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")) - datetime.timedelta(days=i)
         data_formatada = data_alvo.strftime("%d/%m/%Y")
@@ -160,6 +160,10 @@ def processar_grid():
 
         batch_data = []
         for item in data:
+            # Se a viagem foi cancelada, não inserir nem atualizar
+            if item.get('IsTripCanceled') is True:
+                continue
+
             line = item.get('LineIntegrationCode')
             estimated_departure = nullify_date(format_date(item.get('EstimatedDepartureDate')))
             estimated_arrival = nullify_date(format_date(item.get('EstimatedArrivalDate')))
