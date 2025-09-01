@@ -24,13 +24,18 @@ def preencher_tabela_aluno(data_execucao):
     for matricula in alunos:
         veic_logs = veiculo_df[veiculo_df['Matricula'] == matricula].sort_values('EventDate') if not veiculo_df.empty else pd.DataFrame()
         escola_logs = escola_df[escola_df['Matricula'] == matricula].sort_values('EventDate') if not escola_df.empty else pd.DataFrame()
-        if veic_logs.empty:
+        # Processar mesmo se não houver logs de veículo, desde que haja logs da escola
+        if veic_logs.empty and escola_logs.empty:
             continue
         escola_nome = (escola_logs['Nome'].mode()[0] if not escola_logs.empty else "COL.ESTAD.DJALMA MARINHO")
-        veiculo_placa = veic_logs['Placa'].mode()[0]
-        veic_logs['EventDate_dt'] = pd.to_datetime(veic_logs['EventDate'])
-        veic_logs = veic_logs.sort_values('EventDate_dt').reset_index(drop=True)
-        agrupamentos = _split_by_gap(veic_logs, 'EventDate_dt', GAP_SECONDS)
+        veiculo_placa = veic_logs['Placa'].mode()[0] if not veic_logs.empty else None
+
+        # Somente preparar datetime/agrupamentos se houver logs de veículo
+        agrupamentos = []
+        if not veic_logs.empty:
+            veic_logs['EventDate_dt'] = pd.to_datetime(veic_logs['EventDate'])
+            veic_logs = veic_logs.sort_values('EventDate_dt').reset_index(drop=True)
+            agrupamentos = _split_by_gap(veic_logs, 'EventDate_dt', GAP_SECONDS)
 
         entrada_ida_veic = saida_ida_veic = entrada_volta_veic = saida_volta_veic = None
         if len(agrupamentos) >= 1:
@@ -183,7 +188,7 @@ def criar_tabela_aluno():
             id INT AUTO_INCREMENT PRIMARY KEY,
             Matricula VARCHAR(50) NOT NULL,
             Escola VARCHAR(255) NOT NULL,
-            Veiculo VARCHAR(20) NOT NULL,
+            Veiculo VARCHAR(20) DEFAULT NULL,
             Entrada_Ida_Veiculo DATETIME,
             Saida_Ida_Veiculo DATETIME,
             Entrada_Escola DATETIME,
