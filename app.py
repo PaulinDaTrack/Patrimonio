@@ -16,6 +16,7 @@ import time
 from grid import processar_grid
 from ultima_execucao import atualizar_ultima_execucao
 from routeviolation import routeviolation, verificar_violações_por_velocidade, refresh_mv
+from remover_rotas_canceladas import remover_rotas_canceladas
 
 load_dotenv()
 
@@ -372,6 +373,15 @@ scheduler.add_job(
     trigger="cron",
     minute=0,
     hour="*/2",
+    max_instances=1,
+    coalesce=True,
+)
+
+scheduler.add_job(
+    func=log_execution_time(remover_rotas_canceladas),
+    trigger="cron",
+    hour="19",
+    minute="0",
     max_instances=1,
     coalesce=True,
 )
