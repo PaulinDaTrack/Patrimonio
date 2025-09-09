@@ -126,7 +126,7 @@ def refresh_mv():
 
         cursor.execute("TRUNCATE TABLE informacoes_com_cliente_mv;")
 
-        cursor.execute("""
+        sql_insert = """
             INSERT INTO informacoes_com_cliente_mv
             SELECT 
                 i.id,
@@ -150,9 +150,34 @@ def refresh_mv():
                 u834686159_powerbi.historico_grades h
                 ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(h.route_name))
                 AND i.data_execucao = h.data_registro;
-        """)
-        conn.commit()
-        print("✅ MV atualizada com sucesso.")
+        """
+
+        try:
+            cursor.execute(sql_insert)
+            conn.commit()
+            print("✅ MV atualizada com sucesso.")
+        except Exception as e:
+            msg = str(e)
+            print(f"❌ Erro ao atualizar a MV: {e}")
+            # Detecta timeout relacionado a max_statement_time e tenta ajustar a sessão e reexecutar
+            if 'max_statement_time' in msg or 'max_statement_time exceeded' in msg or 'max_execution_time' in msg:
+                print("⚠️ Detectado limitação de tempo; ajustando max_statement_time para 600s e tentando novamente...")
+                try:
+                    try:
+                        cursor.execute("SET SESSION max_statement_time = 600")
+                    except Exception:
+                        # Alguns servidores podem não aceitar essa variável; apenas logue e siga
+                        print("ℹ️ Não foi possível ajustar max_statement_time na sessão.")
+
+                    cursor.execute(sql_insert)
+                    conn.commit()
+                    print("✅ MV atualizada com sucesso após ajuste de tempo.")
+                except Exception as e2:
+                    print(f"❌ Retry também falhou: {e2}")
+                    raise
+            else:
+                raise
+
         conn.close()
 
     except Exception as e:
