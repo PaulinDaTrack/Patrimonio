@@ -292,30 +292,9 @@ def routeviolation_completo():
 
 def refresh_mv_job():
     start_time = time.time()
-    try:
-        try:
-            refresh_mv()
-        except Exception as e:
-            msg = str(e)
-            if 'max_statement_time' in msg or 'max_statement_time exceeded' in msg:
-                logging.warning("refresh_mv_job: detectado max_statement_time excedido; tentando aumentar max_statement_time da sessão para 600s e reexecutar.")
-                try:
-                    conn = get_db_connection()
-                    cursor = conn.cursor()
-                    cursor.execute("SET SESSION max_statement_time = 600")
-                    cursor.close()
-                    conn.close()
-                    refresh_mv()
-                except Exception as inner_e:
-                    logging.exception(f"refresh_mv_job: tentativa de retry falhou: {inner_e}")
-                    raise
-            else:
-                raise
-    except Exception as e:
-        logging.exception(f"Erro no refresh_mv_job: {e}")
-    finally:
-        elapsed_time = time.time() - start_time
-        logging.info(f"Job refresh_mv executado em {elapsed_time:.2f} segundos.")
+    refresh_mv()
+    elapsed_time = time.time() - start_time
+    logging.info(f"Job refresh_mv executado em {elapsed_time:.2f} segundos.")
 
 # Novo job para executar as funções do tags.py a cada 2 horas
 def tags_job():

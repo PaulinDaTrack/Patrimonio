@@ -125,59 +125,55 @@ def refresh_mv():
         print(f"🔄 Atualizando a Materialized View (MV) às {datetime.now()}...")
 
         cursor.execute("TRUNCATE TABLE informacoes_com_cliente_mv;")
+        conn.commit()
 
-        sql_insert = """
-            INSERT INTO informacoes_com_cliente_mv
-            SELECT 
-                i.id,
-                i.LineName,
-                i.RouteName,
-                i.Direction,
-                i.RealVehicle,
-                i.data_execucao,
-                i.url,
-                i.violation_type,
-                g.client_name,
-                h.real_departure,
-                h.real_arrival,
-                h.id AS ID_GRADE
-            FROM 
-                u834686159_powerbi.informacoes i
-            JOIN 
-                u834686159_powerbi.graderumocerto g 
-                ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(g.route_name))
-            LEFT JOIN 
-                u834686159_powerbi.historico_grades h
-                ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(h.route_name))
-                AND i.data_execucao = h.data_registro;
-        """
+        # Processar em lotes menores para evitar timeouts no servidor
+        cursor.execute("SELECT COUNT(*) FROM informacoes;")
+        total = cursor.fetchone()[0]
+        batch_size = 500
+        offset = 0
 
-        try:
-            cursor.execute(sql_insert)
+        while offset < total:
+            cursor.execute("SELECT id FROM informacoes ORDER BY id LIMIT %s OFFSET %s", (batch_size, offset))
+            ids = [row[0] for row in cursor.fetchall()]
+            if not ids:
+                break
+
+            placeholders = ",".join(["%s"] * len(ids))
+
+            insert_sql = f"""
+                INSERT INTO informacoes_com_cliente_mv
+                SELECT 
+                    i.id,
+                    i.LineName,
+                    i.RouteName,
+                    i.Direction,
+                    i.RealVehicle,
+                    i.data_execucao,
+                    i.url,
+                    i.violation_type,
+                    g.client_name,
+                    h.real_departure,
+                    h.real_arrival,
+                    h.id AS ID_GRADE
+                FROM 
+                    u834686159_powerbi.informacoes i
+                JOIN 
+                    u834686159_powerbi.graderumocerto g 
+                    ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(g.route_name))
+                LEFT JOIN 
+                    u834686159_powerbi.historico_grades h
+                    ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(h.route_name))
+                    AND i.data_execucao = h.data_registro
+                WHERE i.id IN ({placeholders});
+            """
+
+            cursor.execute(insert_sql, tuple(ids))
             conn.commit()
-            print("✅ MV atualizada com sucesso.")
-        except Exception as e:
-            msg = str(e)
-            print(f"❌ Erro ao atualizar a MV: {e}")
-            # Detecta timeout relacionado a max_statement_time e tenta ajustar a sessão e reexecutar
-            if 'max_statement_time' in msg or 'max_statement_time exceeded' in msg or 'max_execution_time' in msg:
-                print("⚠️ Detectado limitação de tempo; ajustando max_statement_time para 600s e tentando novamente...")
-                try:
-                    try:
-                        cursor.execute("SET SESSION max_statement_time = 600")
-                    except Exception:
-                        # Alguns servidores podem não aceitar essa variável; apenas logue e siga
-                        print("ℹ️ Não foi possível ajustar max_statement_time na sessão.")
 
-                    cursor.execute(sql_insert)
-                    conn.commit()
-                    print("✅ MV atualizada com sucesso após ajuste de tempo.")
-                except Exception as e2:
-                    print(f"❌ Retry também falhou: {e2}")
-                    raise
-            else:
-                raise
+            offset += batch_size
 
+        print("✅ MV atualizada com sucesso.")
         conn.close()
 
     except Exception as e:
