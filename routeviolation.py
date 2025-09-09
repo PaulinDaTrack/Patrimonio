@@ -152,7 +152,7 @@ def refresh_mv():
                     i.data_execucao,
                     i.url,
                     i.violation_type,
-                    g.client_name,
+                    COALESCE(h.client_name, g.client_name) AS client_name,
                     h.real_departure,
                     h.real_arrival,
                     h.id AS id_grade
