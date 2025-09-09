@@ -155,17 +155,24 @@ def refresh_mv():
                     g.client_name,
                     h.real_departure,
                     h.real_arrival,
-                    h.id AS ID_GRADE
+                    h.id AS id_grade
                 FROM 
                     u834686159_powerbi.informacoes i
                 JOIN 
                     u834686159_powerbi.graderumocerto g 
-                    ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(g.route_name))
-                LEFT JOIN 
-                    u834686159_powerbi.historico_grades h
-                    ON TRIM(LCASE(i.RouteName)) = TRIM(LCASE(h.route_name))
-                    AND i.data_execucao = h.data_registro
-                WHERE i.id IN ({placeholders});
+                    ON TRIM(LOWER(i.RouteName)) = TRIM(LOWER(g.route_name))
+                JOIN (
+                    -- pega apenas o registro mais recente por rota/data na historico_grades
+                    SELECT hg.*
+                    FROM u834686159_powerbi.historico_grades hg
+                    JOIN (
+                        SELECT TRIM(LOWER(route_name)) AS route_name_norm, data_registro, MAX(id) AS max_id
+                        FROM u834686159_powerbi.historico_grades
+                        GROUP BY TRIM(LOWER(route_name)), data_registro
+                    ) latest
+                    ON TRIM(LOWER(hg.route_name)) = latest.route_name_norm AND hg.data_registro = latest.data_registro AND hg.id = latest.max_id
+                ) h ON TRIM(LOWER(i.RouteName)) = TRIM(LOWER(h.route_name)) AND i.data_execucao = h.data_registro
+                WHERE i.id IN ({placeholders}) AND h.id IS NOT NULL AND h.real_departure IS NOT NULL;
             """
 
             cursor.execute(insert_sql, tuple(ids))
@@ -199,7 +206,7 @@ def verificar_violações_por_velocidade(token):
     while True:
         print(f"🔹 Processando lote {lote} (offset {offset})...")
         cursor.execute("""
-            SELECT RealVehicle, real_departure, real_arrival, RouteName, violation_type
+            SELECT id AS informacoes_id, RealVehicle, real_departure, real_arrival, RouteName, violation_type, id_grade
             FROM informacoes_com_cliente_mv
             WHERE real_departure IS NOT NULL AND real_arrival IS NOT NULL
             LIMIT %s OFFSET %s
@@ -214,6 +221,26 @@ def verificar_violações_por_velocidade(token):
                 continue
 
             try:
+                informacoes_id = reg.get('informacoes_id')
+                id_grade = reg.get('id_grade')
+
+                if id_grade is None:
+                    print(f"⚠️ ID_GRADE ausente na MV para informacoes_id={informacoes_id}; marcando como inconsistente.")
+                    cursor.execute("UPDATE informacoes SET violation_type = %s WHERE id = %s", ("Dados Inconsistentes (grade ausente)", informacoes_id))
+                    conn.commit()
+                    continue
+
+                validate_cursor = conn.cursor()
+                validate_cursor.execute("SELECT COUNT(*) FROM u834686159_powerbi.historico_grades WHERE id = %s", (id_grade,))
+                exists = validate_cursor.fetchone()[0] > 0
+                validate_cursor.close()
+
+                if not exists:
+                    print(f"⚠️ Grade id={id_grade} não encontrada para informacoes_id={informacoes_id}; marcando como inconsistente.")
+                    cursor.execute("UPDATE informacoes SET violation_type = %s WHERE id = %s", ("Dados Inconsistentes (grade ausente)", informacoes_id))
+                    conn.commit()
+                    continue
+
                 vehicle_code = reg['RealVehicle']
                 start = reg['real_departure']
                 end = reg['real_arrival']
@@ -225,14 +252,23 @@ def verificar_violações_por_velocidade(token):
                 start_dt = parser.parse(start, dayfirst=True) if isinstance(start, str) else start
                 end_dt = parser.parse(end, dayfirst=True) if isinstance(end, str) else end
 
-                start_dt = parana_tz.localize(start_dt).astimezone(pytz.utc)
-                end_dt = parana_tz.localize(end_dt).astimezone(pytz.utc)
+                if getattr(start_dt, 'tzinfo', None) is None:
+                    start_dt = parana_tz.localize(start_dt)
+                else:
+                    start_dt = start_dt.astimezone(parana_tz)
+                if getattr(end_dt, 'tzinfo', None) is None:
+                    end_dt = parana_tz.localize(end_dt)
+                else:
+                    end_dt = end_dt.astimezone(parana_tz)
+
+                start_utc = start_dt.astimezone(pytz.utc)
+                end_utc = end_dt.astimezone(pytz.utc)
 
                 payload = {
                     "TrackedUnitType": 1,
                     "TrackedUnitIntegrationCode": vehicle_code,
-                    "StartDatePosition": start_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
-                    "EndDatePosition": end_dt.strftime("%Y-%m-%dT%H:%M:%S.000Z")
+                    "StartDatePosition": start_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z"),
+                    "EndDatePosition": end_utc.strftime("%Y-%m-%dT%H:%M:%S.000Z")
                 }
 
                 headers = {"Authorization": f"Bearer {token}"}
@@ -259,30 +295,14 @@ def verificar_violações_por_velocidade(token):
                         violacao = "Velocidade Excedida"
                         break
 
-                data_execucao = start_dt.strftime('%Y-%m-%d')
-
                 try:
                     conn.ping(reconnect=True)
                 except Exception:
                     conn = conectar_mysql()
                     cursor = conn.cursor(dictionary=True)
 
-                cursor.execute("""
-                    SELECT id FROM informacoes
-                    WHERE RouteName = %s AND data_execucao = %s
-                    LIMIT 1
-                """, (route_name, data_execucao))
-                row = cursor.fetchone()
-
-                if row:
-                    cursor.execute("""
-                        UPDATE informacoes
-                        SET violation_type = %s
-                        WHERE id = %s
-                    """, (violacao, row['id']))
-                    conn.commit()
-                else:
-                    print(f"❌ Linha não encontrada ➤ {route_name} ({data_execucao})")
+                cursor.execute("UPDATE informacoes SET violation_type = %s WHERE id = %s", (violacao, informacoes_id))
+                conn.commit()
 
                 time.sleep(1)
 
