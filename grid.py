@@ -54,25 +54,6 @@ def processar_grid():
     cursor = conn.cursor(buffered=True)
 
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS graderumocerto (
-        line VARCHAR(50),
-        estimated_departure VARCHAR(50),
-        estimated_arrival VARCHAR(50),
-        real_departure VARCHAR(50),
-        real_arrival VARCHAR(50),
-        route_integration_code VARCHAR(255) NOT NULL,
-        route_name VARCHAR(255),
-        direction_name VARCHAR(255),
-        shift VARCHAR(50),
-        estimated_vehicle VARCHAR(255),
-        real_vehicle VARCHAR(255),
-        estimated_distance VARCHAR(50),
-        travelled_distance VARCHAR(50),
-        client_name VARCHAR(255),
-        PRIMARY KEY (route_integration_code)
-    );
-    """)
-    cursor.execute("""
     CREATE TABLE IF NOT EXISTS historico_grades (
         id INT AUTO_INCREMENT PRIMARY KEY,
         line VARCHAR(50),
@@ -95,8 +76,9 @@ def processar_grid():
     """)
     conn.commit()
 
+    # Update nas entradas do histórico (identificadas por route_integration_code + data_registro)
     update_query = """
-    UPDATE graderumocerto
+    UPDATE historico_grades
     SET estimated_departure = %s,
         estimated_arrival = %s,
         real_departure = %s,
@@ -104,15 +86,7 @@ def processar_grid():
         real_vehicle = %s,
         estimated_distance = %s,
         travelled_distance = %s
-    WHERE route_integration_code = %s
-    """
-
-    insert_query = """
-    INSERT INTO graderumocerto (
-        line, estimated_departure, estimated_arrival, real_departure, real_arrival, 
-        route_name, direction_name, shift, estimated_vehicle, real_vehicle, 
-        estimated_distance, travelled_distance, client_name, route_integration_code
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    WHERE route_integration_code = %s AND data_registro = %s
     """
 
     insert_historico_query = '''
@@ -155,7 +129,8 @@ def processar_grid():
             print(f"Nenhuma grade encontrada para {data_formatada}")
             continue
 
-        cursor.execute("SELECT route_integration_code, client_name FROM graderumocerto")
+        # Buscar client_name previamente cadastrado no histórico (qualquer data)
+        cursor.execute("SELECT route_integration_code, client_name FROM historico_grades")
         existing_routes = {row[0]: row[1] for row in cursor.fetchall()}
 
         batch_data = []
@@ -168,7 +143,7 @@ def processar_grid():
             estimated_departure = nullify_date(format_date(item.get('EstimatedDepartureDate')))
             estimated_arrival = nullify_date(format_date(item.get('EstimatedArrivalDate')))
             real_departure = nullify_date(format_date(item.get('RealDepartureDate')))
-            real_arrival = nullify_date(format_date(item.get('RealdArrivalDate')))
+            real_arrival = nullify_date(format_date(item.get('RealArrivalDate')))
             route_integration_code = item.get('RouteIntegrationCode')
             route_name = item.get('RouteName')
             direction_name = item.get('DirectionName')
@@ -192,38 +167,32 @@ def processar_grid():
         cursor.executemany(insert_historico_query, batch_data)
         conn.commit()
 
-        cursor.execute("SELECT route_integration_code FROM historico_grades WHERE real_arrival IS NOT NULL AND real_arrival != '01/01/0001'")
+        # selecionar rotas que já têm real_arrival válido para a data em questão
+        cursor.execute(
+            "SELECT route_integration_code FROM historico_grades WHERE real_arrival IS NOT NULL AND real_arrival != '' AND real_arrival NOT LIKE '%0001%' AND data_registro = %s",
+            (data_alvo.date(),)
+        )
         routes_with_real_arrival = {row[0] for row in cursor.fetchall()}
 
         update_data = []
-        # use a dict to deduplicate inserts by route_integration_code
-        insert_map = {}
+        # Para cada registro do batch, se ainda não houver real_arrival registrado para a data, atualizar o histórico
         for item in batch_data:
             route_code = item[5]
-            if route_code in existing_routes and route_code not in routes_with_real_arrival:
+            # item[14] é data_registro
+            if route_code not in routes_with_real_arrival:
                 update_data.append((
-                    item[1], item[2], item[3], item[4], item[10], item[11], item[12], item[5]
+                    item[1], item[2], item[3], item[4], item[10], item[11], item[12], item[5], item[14]
                 ))
-            elif route_code not in existing_routes:
-                # keep the first occurrence (or override if you prefer last)
-                if route_code not in insert_map:
-                    insert_map[route_code] = (
-                        item[0], item[1], item[2], item[3], item[4], item[6], item[7], item[8], item[9], item[10],
-                        item[11], item[12], item[13], item[5]
-                    )
-
-        insert_data = list(insert_map.values())
 
         try:
             if update_data:
+                print(f"Executando UPDATE em historico_grades para {len(update_data)} rotas")
                 cursor.executemany(update_query, update_data)
-            if insert_data:
-                cursor.executemany(insert_query, insert_data)
             conn.commit()
         except mysql.connector.IntegrityError as e:
-            # Log the error and continue processing next date/batch
-            print(f"Erro de integridade ao inserir/atualizar: {e}")
-            conn.rollback()
+             # Log the error and continue processing next date/batch
+             print(f"Erro de integridade ao inserir/atualizar: {e}")
+             conn.rollback()
 
         print(f"✅ Grades processadas para {data_formatada}")
 
