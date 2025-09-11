@@ -6,6 +6,7 @@ import requests
 import datetime
 import mysql.connector
 import pytz
+import time  # adicionando import time
 from authtoken import obter_token
 
 def format_date(date_str):
@@ -51,7 +52,8 @@ def processar_grid():
         print("Erro ao conectar no banco de dados:", err)
         return
 
-    cursor = conn.cursor(buffered=True)
+    cursor = conn.cursor()
+    cursor.execute("SET SESSION TRANSACTION ISOLATION LEVEL READ COMMITTED")
 
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS historico_grades (
@@ -76,19 +78,7 @@ def processar_grid():
     """)
     conn.commit()
 
-    # Update nas entradas do histórico (identificadas por route_integration_code + data_registro)
-    update_query = """
-    UPDATE historico_grades
-    SET estimated_departure = %s,
-        estimated_arrival = %s,
-        real_departure = %s,
-        real_arrival = %s,
-        real_vehicle = %s,
-        estimated_distance = %s,
-        travelled_distance = %s
-    WHERE route_integration_code = %s AND data_registro = %s
-    """
-
+    # Removido update separado; ON DUPLICATE KEY cuidará de atualizar (sem sobrescrever real_* com NULL)
     insert_historico_query = '''
     INSERT INTO historico_grades (
         line, estimated_departure, estimated_arrival, real_departure, real_arrival,
@@ -98,9 +88,9 @@ def processar_grid():
     ON DUPLICATE KEY UPDATE
         estimated_departure = VALUES(estimated_departure),
         estimated_arrival = VALUES(estimated_arrival),
-        real_departure = VALUES(real_departure),
-        real_arrival = VALUES(real_arrival),
-        real_vehicle = VALUES(real_vehicle),
+        real_departure = IFNULL(VALUES(real_departure), real_departure),
+        real_arrival = IFNULL(VALUES(real_arrival), real_arrival),
+        real_vehicle = IFNULL(VALUES(real_vehicle), real_vehicle),
         estimated_vehicle = VALUES(estimated_vehicle),
         estimated_distance = VALUES(estimated_distance),
         travelled_distance = VALUES(travelled_distance),
@@ -111,7 +101,7 @@ def processar_grid():
         line = VALUES(line)
     '''
 
-    dias_a_verificar = 10
+    dias_a_verificar = 11
     for i in range(dias_a_verificar):
         data_alvo = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")) - datetime.timedelta(days=i)
         data_formatada = data_alvo.strftime("%d/%m/%Y")
@@ -129,22 +119,37 @@ def processar_grid():
             print(f"Nenhuma grade encontrada para {data_formatada}")
             continue
 
-        # Buscar client_name previamente cadastrado no histórico (qualquer data)
-        cursor.execute("SELECT route_integration_code, client_name FROM historico_grades")
-        existing_routes = {row[0]: row[1] for row in cursor.fetchall()}
-
-        batch_data = []
+        # Pré-filtrar itens não cancelados e coletar códigos
+        raw_items = []
         for item in data:
-            # Se a viagem foi cancelada, não inserir nem atualizar
             if item.get('IsTripCanceled') is True:
                 continue
+            raw_items.append(item)
+        if not raw_items:
+            print(f"Todas as viagens canceladas em {data_formatada}")
+            continue
+        route_codes = { (itm.get('RouteIntegrationCode') or '').strip() for itm in raw_items }
+        existing_routes = {}
+        if route_codes:
+            # Montar query IN dinâmica em chunks para evitar limites
+            route_codes_list = list(route_codes)
+            chunk_size = 1000
+            for c in range(0, len(route_codes_list), chunk_size):
+                chunk = route_codes_list[c:c+chunk_size]
+                placeholders = ','.join(['%s'] * len(chunk))
+                cursor.execute(f"SELECT route_integration_code, client_name FROM historico_grades WHERE route_integration_code IN ({placeholders})", chunk)
+                for r in cursor.fetchall():
+                    existing_routes[r[0]] = r[1]
 
+        batch_data = []
+        for item in raw_items:
             line = item.get('LineIntegrationCode')
             estimated_departure = nullify_date(format_date(item.get('EstimatedDepartureDate')))
             estimated_arrival = nullify_date(format_date(item.get('EstimatedArrivalDate')))
             real_departure = nullify_date(format_date(item.get('RealDepartureDate')))
-            real_arrival = nullify_date(format_date(item.get('RealArrivalDate')))
-            route_integration_code = item.get('RouteIntegrationCode')
+            raw_real_arrival = item.get('RealArrivalDate') or item.get('RealdArrivalDate')
+            real_arrival = nullify_date(format_date(raw_real_arrival))
+            route_integration_code = (item.get('RouteIntegrationCode') or '').strip()
             route_name = item.get('RouteName')
             direction_name = item.get('DirectionName')
             shift = item.get('Shift')
@@ -152,11 +157,9 @@ def processar_grid():
             real_vehicle = item.get('RealVehicle')
             estimated_distance = item.get('EstimatedDistance')
             travelled_distance = item.get('TravelledDistance')
-
             client_name = item.get('ClientName') or existing_routes.get(route_integration_code)
-            if client_name is not None:
+            if client_name:
                 client_name = client_name.strip()
-
             batch_data.append((
                 line, estimated_departure, estimated_arrival, real_departure, real_arrival,
                 route_integration_code, route_name, direction_name, shift,
@@ -164,35 +167,20 @@ def processar_grid():
                 client_name, data_alvo.date()
             ))
 
-        cursor.executemany(insert_historico_query, batch_data)
-        conn.commit()
-
-        # selecionar rotas que já têm real_arrival válido para a data em questão
-        cursor.execute(
-            "SELECT route_integration_code FROM historico_grades WHERE real_arrival IS NOT NULL AND real_arrival != '' AND real_arrival NOT LIKE '%0001%' AND data_registro = %s",
-            (data_alvo.date(),)
-        )
-        routes_with_real_arrival = {row[0] for row in cursor.fetchall()}
-
-        update_data = []
-        # Para cada registro do batch, se ainda não houver real_arrival registrado para a data, atualizar o histórico
-        for item in batch_data:
-            route_code = item[5]
-            # item[14] é data_registro
-            if route_code not in routes_with_real_arrival:
-                update_data.append((
-                    item[1], item[2], item[3], item[4], item[10], item[11], item[12], item[5], item[14]
-                ))
-
-        try:
-            if update_data:
-                print(f"Executando UPDATE em historico_grades para {len(update_data)} rotas")
-                cursor.executemany(update_query, update_data)
-            conn.commit()
-        except mysql.connector.IntegrityError as e:
-             # Log the error and continue processing next date/batch
-             print(f"Erro de integridade ao inserir/atualizar: {e}")
-             conn.rollback()
+        # Retry simples para contornar lock wait
+        for attempt in range(3):
+            try:
+                cursor.executemany(insert_historico_query, batch_data)
+                conn.commit()
+                break
+            except mysql.connector.Error as e:
+                if e.errno == 1205:  # Lock wait timeout
+                    print(f"Lock wait (tentativa {attempt+1}) em {data_formatada}, aguardando...")
+                    time.sleep(2 * (attempt + 1))
+                    if attempt == 2:
+                        raise
+                else:
+                    raise
 
         print(f"✅ Grades processadas para {data_formatada}")
 
