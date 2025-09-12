@@ -86,22 +86,22 @@ def processar_grid():
         estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, data_registro
     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
-        estimated_departure = VALUES(estimated_departure),
-        estimated_arrival = VALUES(estimated_arrival),
-        real_departure = IFNULL(VALUES(real_departure), real_departure),
-        real_arrival = IFNULL(VALUES(real_arrival), real_arrival),
-        real_vehicle = IFNULL(VALUES(real_vehicle), real_vehicle),
-        estimated_vehicle = VALUES(estimated_vehicle),
-        estimated_distance = VALUES(estimated_distance),
-        travelled_distance = VALUES(travelled_distance),
-        route_name = VALUES(route_name),
-        direction_name = VALUES(direction_name),
-        shift = VALUES(shift),
-        client_name = IFNULL(VALUES(client_name), client_name),
-        line = VALUES(line)
+        estimated_departure = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_departure), estimated_departure),
+        estimated_arrival = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_arrival), estimated_arrival),
+        real_departure = IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_departure), real_departure), real_departure),
+        real_arrival = IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_arrival), real_arrival), real_arrival),
+        real_vehicle = IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_vehicle), real_vehicle), real_vehicle),
+        estimated_vehicle = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_vehicle), estimated_vehicle),
+        estimated_distance = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_distance), estimated_distance),
+        travelled_distance = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(travelled_distance), travelled_distance),
+        route_name = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(route_name), route_name),
+        direction_name = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(direction_name), direction_name),
+        shift = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(shift), shift),
+        client_name = IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(client_name), client_name), client_name),
+        line = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(line), line)
     '''
 
-    dias_a_verificar = 11
+    dias_a_verificar = 10
     for i in range(dias_a_verificar):
         data_alvo = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")) - datetime.timedelta(days=i)
         data_formatada = data_alvo.strftime("%d/%m/%Y")
