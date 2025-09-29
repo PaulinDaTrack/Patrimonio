@@ -78,7 +78,6 @@ def processar_grid():
     """)
     conn.commit()
 
-    # Removido update separado; ON DUPLICATE KEY cuidará de atualizar (sem sobrescrever real_* com NULL)
     insert_historico_query = '''
     INSERT INTO historico_grades (
         line, estimated_departure, estimated_arrival, real_departure, real_arrival,
@@ -86,19 +85,110 @@ def processar_grid():
         estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, data_registro
     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
-        estimated_departure = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_departure), estimated_departure),
-        estimated_arrival = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_arrival), estimated_arrival),
-        real_departure = IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_departure), real_departure), real_departure),
-        real_arrival = IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_arrival), real_arrival), real_arrival),
-        real_vehicle = IF((real_vehicle IS NULL OR real_vehicle = '' OR VALUES(real_vehicle) != real_vehicle) AND VALUES(real_vehicle) IS NOT NULL AND VALUES(real_vehicle) != '', VALUES(real_vehicle), real_vehicle),
-        estimated_vehicle = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_vehicle), estimated_vehicle),
-        estimated_distance = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_distance), estimated_distance),
-        travelled_distance = IF(VALUES(travelled_distance) != travelled_distance AND VALUES(travelled_distance) IS NOT NULL AND VALUES(travelled_distance) != '', VALUES(travelled_distance), travelled_distance),
-        route_name = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(route_name), route_name),
-        direction_name = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(direction_name), direction_name),
-        shift = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(shift), shift),
-        client_name = IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(client_name), client_name), client_name),
-        line = IF(real_arrival IS NULL OR real_arrival = '' , VALUES(line), line)
+        estimated_departure = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , estimated_departure,
+            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_departure), estimated_departure)
+        ),
+        estimated_arrival = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , estimated_arrival,
+            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_arrival), estimated_arrival)
+        ),
+        real_departure = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , real_departure,
+            IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_departure), real_departure), real_departure)
+        ),
+        real_arrival = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , real_arrival,
+            IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_arrival), real_arrival), real_arrival)
+        ),
+        real_vehicle = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , real_vehicle,
+            IF((real_vehicle IS NULL OR real_vehicle = '' OR VALUES(real_vehicle) != real_vehicle) AND VALUES(real_vehicle) IS NOT NULL AND VALUES(real_vehicle) != '', VALUES(real_vehicle), real_vehicle)
+        ),
+        estimated_vehicle = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , estimated_vehicle,
+            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_vehicle), estimated_vehicle)
+        ),
+        estimated_distance = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , estimated_distance,
+            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_distance), estimated_distance)
+        ),
+        travelled_distance = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , travelled_distance,
+            IF(VALUES(travelled_distance) != travelled_distance AND VALUES(travelled_distance) IS NOT NULL AND VALUES(travelled_distance) != '', VALUES(travelled_distance), travelled_distance)
+        ),
+        route_name = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , route_name,
+            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(route_name), route_name)
+        ),
+        direction_name = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , direction_name,
+            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(direction_name), direction_name)
+        ),
+        shift = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , shift,
+            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(shift), shift)
+        ),
+        client_name = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , client_name,
+            IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(client_name), client_name), client_name)
+        ),
+        line = IF(
+            real_departure IS NOT NULL AND real_departure != '' AND
+            real_arrival IS NOT NULL AND real_arrival != '' AND
+            real_vehicle IS NOT NULL AND real_vehicle != '' AND
+            travelled_distance IS NOT NULL AND travelled_distance != ''
+            , line,
+            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(line), line)
+        )
     '''
 
     dias_a_verificar = 10
@@ -119,7 +209,6 @@ def processar_grid():
             print(f"Nenhuma grade encontrada para {data_formatada}")
             continue
 
-        # Pré-filtrar itens não cancelados e coletar códigos
         raw_items = []
         for item in data:
             if item.get('IsTripCanceled') is True:
@@ -131,7 +220,6 @@ def processar_grid():
         route_codes = { (itm.get('RouteIntegrationCode') or '').strip() for itm in raw_items }
         existing_routes = {}
         if route_codes:
-            # Montar query IN dinâmica em chunks para evitar limites
             route_codes_list = list(route_codes)
             chunk_size = 1000
             for c in range(0, len(route_codes_list), chunk_size):
@@ -167,14 +255,13 @@ def processar_grid():
                 client_name, data_alvo.date()
             ))
 
-        # Retry simples para contornar lock wait
         for attempt in range(3):
             try:
                 cursor.executemany(insert_historico_query, batch_data)
                 conn.commit()
                 break
             except mysql.connector.Error as e:
-                if e.errno == 1205:  # Lock wait timeout
+                if e.errno == 1205:
                     print(f"Lock wait (tentativa {attempt+1}) em {data_formatada}, aguardando...")
                     time.sleep(2 * (attempt + 1))
                     if attempt == 2:
