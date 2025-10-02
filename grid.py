@@ -6,7 +6,7 @@ import requests
 import datetime
 import mysql.connector
 import pytz
-import time  # adicionando import time
+import time
 from authtoken import obter_token
 
 def format_date(date_str):
@@ -71,6 +71,7 @@ def processar_grid():
         real_vehicle VARCHAR(255),
         estimated_distance VARCHAR(50),
         travelled_distance VARCHAR(50),
+        odometro VARCHAR(50),
         client_name VARCHAR(255),
         data_registro DATE,
         UNIQUE KEY idx_codigo_data (route_integration_code, data_registro)
@@ -78,13 +79,21 @@ def processar_grid():
     """)
     conn.commit()
 
+    cursor.execute("""
+    ALTER TABLE historico_grades ADD COLUMN IF NOT EXISTS travelled_distance_original VARCHAR(50) DEFAULT NULL;
+    """)
+    conn.commit()
+
     insert_historico_query = '''
     INSERT INTO historico_grades (
         line, estimated_departure, estimated_arrival, real_departure, real_arrival,
         route_integration_code, route_name, direction_name, shift,
-        estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, data_registro
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, data_registro, travelled_distance_original, odometro
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
+        odometro = IF(VALUES(odometro) IS NOT NULL AND VALUES(odometro) != '', VALUES(odometro), odometro),
+        travelled_distance_original = IF(travelled_distance_original IS NULL AND VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance_original), travelled_distance_original),
+        travelled_distance = VALUES(travelled_distance),
         estimated_departure = IF(
             real_departure IS NOT NULL AND real_departure != '' AND
             real_arrival IS NOT NULL AND real_arrival != '' AND
@@ -140,14 +149,6 @@ def processar_grid():
             travelled_distance IS NOT NULL AND travelled_distance != ''
             , estimated_distance,
             IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_distance), estimated_distance)
-        ),
-        travelled_distance = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , travelled_distance,
-            IF(VALUES(travelled_distance) != travelled_distance AND VALUES(travelled_distance) IS NOT NULL AND VALUES(travelled_distance) != '', VALUES(travelled_distance), travelled_distance)
         ),
         route_name = IF(
             real_departure IS NOT NULL AND real_departure != '' AND
@@ -245,6 +246,16 @@ def processar_grid():
             real_vehicle = item.get('RealVehicle')
             estimated_distance = item.get('EstimatedDistance')
             travelled_distance = item.get('TravelledDistance')
+            try:
+                est_dist = float(estimated_distance) if estimated_distance is not None else None
+                trav_dist = float(travelled_distance) if travelled_distance is not None else None
+            except Exception:
+                est_dist = trav_dist = None
+            travelled_distance_original = None
+            if est_dist is not None and trav_dist is not None and est_dist > 0:
+                if trav_dist > 1.5 * est_dist or trav_dist < -1.5 * est_dist:
+                    travelled_distance_original = travelled_distance
+                    travelled_distance = str(estimated_distance)
             client_name = item.get('ClientName') or existing_routes.get(route_integration_code)
             if client_name:
                 client_name = client_name.strip()
@@ -252,7 +263,7 @@ def processar_grid():
                 line, estimated_departure, estimated_arrival, real_departure, real_arrival,
                 route_integration_code, route_name, direction_name, shift,
                 estimated_vehicle, real_vehicle, estimated_distance, travelled_distance,
-                client_name, data_alvo.date()
+                client_name, data_alvo.date(), travelled_distance_original, None  # odometro
             ))
 
         for attempt in range(3):
