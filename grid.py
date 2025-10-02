@@ -92,103 +92,43 @@ def processar_grid():
     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
         odometro = IF(VALUES(odometro) IS NOT NULL AND VALUES(odometro) != '', VALUES(odometro), odometro),
-        travelled_distance_original = IF(travelled_distance_original IS NULL AND VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance_original), travelled_distance_original),
-        travelled_distance = VALUES(travelled_distance),
-        estimated_departure = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , estimated_departure,
-            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_departure), estimated_departure)
-        ),
-        estimated_arrival = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , estimated_arrival,
-            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_arrival), estimated_arrival)
-        ),
+        travelled_distance_original = IF(VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance_original), travelled_distance_original),
+        travelled_distance = IF(VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance), travelled_distance),
         real_departure = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , real_departure,
-            IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_departure), real_departure), real_departure)
+            real_departure IS NULL OR real_departure = '', VALUES(real_departure), real_departure
         ),
         real_arrival = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , real_arrival,
-            IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(real_arrival), real_arrival), real_arrival)
+            real_arrival IS NULL OR real_arrival = '', VALUES(real_arrival), real_arrival
         ),
         real_vehicle = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , real_vehicle,
-            IF((real_vehicle IS NULL OR real_vehicle = '' OR VALUES(real_vehicle) != real_vehicle) AND VALUES(real_vehicle) IS NOT NULL AND VALUES(real_vehicle) != '', VALUES(real_vehicle), real_vehicle)
+            real_vehicle IS NULL OR real_vehicle = '', VALUES(real_vehicle), real_vehicle
+        ),
+        estimated_departure = IF(
+            real_arrival IS NULL OR real_arrival = '', VALUES(estimated_departure), estimated_departure
+        ),
+        estimated_arrival = IF(
+            real_arrival IS NULL OR real_arrival = '', VALUES(estimated_arrival), estimated_arrival
         ),
         estimated_vehicle = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , estimated_vehicle,
-            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_vehicle), estimated_vehicle)
+            real_arrival IS NULL OR real_arrival = '', VALUES(estimated_vehicle), estimated_vehicle
         ),
         estimated_distance = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , estimated_distance,
-            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(estimated_distance), estimated_distance)
+            real_arrival IS NULL OR real_arrival = '', VALUES(estimated_distance), estimated_distance
         ),
         route_name = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , route_name,
-            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(route_name), route_name)
+            real_arrival IS NULL OR real_arrival = '', VALUES(route_name), route_name
         ),
         direction_name = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , direction_name,
-            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(direction_name), direction_name)
+            real_arrival IS NULL OR real_arrival = '', VALUES(direction_name), direction_name
         ),
         shift = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , shift,
-            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(shift), shift)
+            real_arrival IS NULL OR real_arrival = '', VALUES(shift), shift
         ),
         client_name = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , client_name,
-            IF(real_arrival IS NULL OR real_arrival = '' , IFNULL(VALUES(client_name), client_name), client_name)
+            real_arrival IS NULL OR real_arrival = '', IFNULL(VALUES(client_name), client_name), client_name
         ),
         line = IF(
-            real_departure IS NOT NULL AND real_departure != '' AND
-            real_arrival IS NOT NULL AND real_arrival != '' AND
-            real_vehicle IS NOT NULL AND real_vehicle != '' AND
-            travelled_distance IS NOT NULL AND travelled_distance != ''
-            , line,
-            IF(real_arrival IS NULL OR real_arrival = '' , VALUES(line), line)
+            real_arrival IS NULL OR real_arrival = '', VALUES(line), line
         )
     '''
 
@@ -252,10 +192,18 @@ def processar_grid():
             except Exception:
                 est_dist = trav_dist = None
             travelled_distance_original = None
+            # Corrige travelled_distance se necessário e garante valor positivo
             if est_dist is not None and trav_dist is not None and est_dist > 0:
-                if trav_dist > 1.5 * est_dist or trav_dist < -1.5 * est_dist:
+                if trav_dist > 1.5 * est_dist or trav_dist < -1.5 * est_dist or trav_dist < 0:
                     travelled_distance_original = travelled_distance
-                    travelled_distance = str(estimated_distance)
+                    travelled_distance = str(abs(float(estimated_distance)))
+                else:
+                    travelled_distance = str(abs(trav_dist))
+            elif trav_dist is not None and trav_dist < 0:
+                travelled_distance_original = travelled_distance
+                travelled_distance = str(abs(trav_dist))
+            elif trav_dist is not None:
+                travelled_distance = str(abs(trav_dist))
             client_name = item.get('ClientName') or existing_routes.get(route_integration_code)
             if client_name:
                 client_name = client_name.strip()
