@@ -148,7 +148,7 @@ def main():
             password=os.getenv("POWERBI_DB_PASSWORD")
         )
         cursor = conn.cursor()
-        cursor.execute("SELECT DISTINCT real_vehicle FROM historico_grades WHERE real_vehicle IS NOT NULL AND real_vehicle != ''")
+        cursor.execute("SELECT DISTINCT real_vehicle FROM historico_grades WHERE real_vehicle IS NOT NULL AND real_vehicle != '' AND (odometro IS NULL OR odometro = '' OR odometro = 'NULL')")
         veiculos = [row[0] for row in cursor.fetchall()]
         token = obter_token()
         if not token:
@@ -189,7 +189,7 @@ def main():
                 cursor_ord.execute("""
                     SELECT line, real_departure, real_arrival, data_registro
                     FROM historico_grades
-                    WHERE real_vehicle = %s AND real_departure IS NOT NULL AND real_arrival IS NOT NULL AND data_registro = %s
+                    WHERE real_vehicle = %s AND real_departure IS NOT NULL AND real_arrival IS NOT NULL AND data_registro = %s AND (odometro IS NULL OR odometro = '' OR odometro = 'NULL')
                     ORDER BY real_departure ASC
                 """, (veiculo, data_hoje))
                 linhas_ord = cursor_ord.fetchall()
