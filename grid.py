@@ -92,8 +92,8 @@ def processar_grid():
     ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
         odometro = IF(VALUES(odometro) IS NOT NULL AND VALUES(odometro) != '', VALUES(odometro), odometro),
-        travelled_distance_original = IF(VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance_original), travelled_distance_original),
-        travelled_distance = IF(VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance), travelled_distance),
+        travelled_distance_original = IF((travelled_distance_original IS NULL OR travelled_distance_original = '' OR travelled_distance_original = 'NULL') AND VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance_original), travelled_distance_original),
+        travelled_distance = IF((travelled_distance IS NULL OR travelled_distance = '' OR travelled_distance = 'NULL') AND VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance), travelled_distance),
         real_departure = IF(
             real_departure IS NULL OR real_departure = '', VALUES(real_departure), real_departure
         ),
@@ -194,7 +194,7 @@ def processar_grid():
             travelled_distance_original = None
             # Corrige travelled_distance se necessário e garante valor positivo
             if est_dist is not None and trav_dist is not None and est_dist > 0:
-                if trav_dist > 2.5 * est_dist or trav_dist < -2.5 * est_dist or trav_dist < 0:
+                if trav_dist < 0:
                     travelled_distance_original = travelled_distance
                     travelled_distance = str(abs(float(estimated_distance)))
                 else:
