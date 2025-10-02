@@ -17,6 +17,7 @@ from grid import processar_grid
 from ultima_execucao import atualizar_ultima_execucao
 from routeviolation import routeviolation, verificar_violações_por_velocidade, refresh_mv
 from remover_rotas_canceladas import remover_rotas_canceladas
+from odometer import main as odometer_main
 
 load_dotenv()
 
@@ -382,6 +383,14 @@ scheduler.add_job(
     trigger="cron",
     hour="19",
     minute="0",
+    max_instances=1,
+    coalesce=True,
+)
+
+scheduler.add_job(
+    func=log_execution_time(odometer_main),
+    trigger="interval",
+    minutes=10,
     max_instances=1,
     coalesce=True,
 )
