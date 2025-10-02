@@ -192,14 +192,8 @@ def processar_grid():
             except Exception:
                 est_dist = trav_dist = None
             travelled_distance_original = None
-            # Corrige travelled_distance se necessário e garante valor positivo
-            if est_dist is not None and trav_dist is not None and est_dist > 0:
-                if trav_dist < 0:
-                    travelled_distance_original = travelled_distance
-                    travelled_distance = str(abs(float(estimated_distance)))
-                else:
-                    travelled_distance = str(abs(trav_dist))
-            elif trav_dist is not None and trav_dist < 0:
+            # Corrige travelled_distance apenas se for negativo
+            if trav_dist is not None and trav_dist < 0:
                 travelled_distance_original = travelled_distance
                 travelled_distance = str(abs(trav_dist))
             elif trav_dist is not None:
