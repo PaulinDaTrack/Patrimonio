@@ -194,7 +194,7 @@ def processar_grid():
             travelled_distance_original = None
             # Corrige travelled_distance se necessário e garante valor positivo
             if est_dist is not None and trav_dist is not None and est_dist > 0:
-                if trav_dist > 1.5 * est_dist or trav_dist < -1.5 * est_dist or trav_dist < 0:
+                if trav_dist > 2.5 * est_dist or trav_dist < -2.5 * est_dist or trav_dist < 0:
                     travelled_distance_original = travelled_distance
                     travelled_distance = str(abs(float(estimated_distance)))
                 else:
