@@ -139,7 +139,7 @@ def update_odometro(veiculo, line, real_departure, real_arrival, data_registro, 
     except Exception as e:
         print('Erro ao atualizar banco:', e)
 
-if __name__ == "__main__":
+def main():
     try:
         conn = mysql.connector.connect(
             host=os.getenv("POWERBI_DB_HOST"),
@@ -276,3 +276,6 @@ if __name__ == "__main__":
                 update_odometro(veiculo, line, real_departure, real_arrival, data_registro, odometro)
     except Exception as e:
         print('Erro ao buscar veículos:', e)
+
+if __name__ == "__main__":
+    main()
