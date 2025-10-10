@@ -381,8 +381,8 @@ scheduler.add_job(
 scheduler.add_job(
     func=log_execution_time(remover_rotas_canceladas),
     trigger="cron",
-    hour="19",
-    minute="0",
+    minute=0,
+    hour="*/2",
     max_instances=1,
     coalesce=True,
 )
