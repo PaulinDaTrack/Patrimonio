@@ -192,7 +192,6 @@ def processar_grid():
             except Exception:
                 est_dist = trav_dist = None
             travelled_distance_original = None
-            # Corrige travelled_distance apenas se for negativo
             if trav_dist is not None and trav_dist < 0:
                 travelled_distance_original = travelled_distance
                 travelled_distance = str(abs(trav_dist))
@@ -228,7 +227,7 @@ def processar_grid():
     UPDATE historico_grades
     SET travelled_distance = FLOOR(estimated_distance)
     WHERE real_arrival IS NOT NULL 
-      AND travelled_distance = 0
+      AND travelled_distance_original IS NOT NULL
       AND STR_TO_DATE(estimated_departure, '%d/%m/%Y %H:%i:%s') >= DATE_SUB(NOW(), INTERVAL 7 DAY);
     """
     cursor.execute(update_travelled_distance_query)
