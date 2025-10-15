@@ -93,7 +93,7 @@ def processar_grid():
     ON DUPLICATE KEY UPDATE
         odometro = IF(VALUES(odometro) IS NOT NULL AND VALUES(odometro) != '', VALUES(odometro), odometro),
         travelled_distance_original = IF((travelled_distance_original IS NULL OR travelled_distance_original = '' OR travelled_distance_original = 'NULL') AND VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance_original), travelled_distance_original),
-        travelled_distance = IF((travelled_distance IS NULL OR travelled_distance = '' OR travelled_distance = 'NULL') AND VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance), travelled_distance),
+        travelled_distance = IF((travelled_distance IS NULL OR travelled_distance = '' OR travelled_distance = 'NULL') AND VALUES(travelled_distance) IS NOT NULL, VALUES(travelled_distance), travelled_distance),
         real_departure = IF(
             real_departure IS NULL OR real_departure = '', VALUES(real_departure), real_departure
         ),
