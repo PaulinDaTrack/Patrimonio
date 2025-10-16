@@ -67,8 +67,7 @@ def remover_rotas_canceladas(dias_verificar=10):
 
         to_remove = db_codes_date - api_present
         for code in to_remove:
-            if code in routes_in_db:
-                missing_map.setdefault(code, set()).add(data_alvo.date())
+            missing_map.setdefault(code, set()).add(data_alvo.date())
 
     if not canceled_map and not missing_map:
         print("Nenhuma rota cancelada ou ocorrência ausente encontrada no período verificado.")
@@ -131,7 +130,6 @@ def remover_rotas_canceladas_informacoes(dias_verificar=10):
 
     cursor = conn.cursor()
 
-    # mapear integration_code -> route_name a partir de graderumocerto
     try:
         cursor.execute("SELECT route_integration_code, route_name FROM graderumocerto")
         rows = cursor.fetchall()
@@ -176,7 +174,6 @@ def remover_rotas_canceladas_informacoes(dias_verificar=10):
                 if route_name and route_name in route_names_set:
                     canceled_map.setdefault(route_name, set()).add(data_alvo.date())
 
-        # buscar RouteName na tabela informacoes usando a coluna data_execucao
         try:
             cursor.execute("SELECT DISTINCT RouteName FROM informacoes WHERE data_execucao = %s", (data_alvo.date(),))
             db_names_date = {row[0] for row in cursor.fetchall() if row[0]}
@@ -231,7 +228,6 @@ def remover_rotas_canceladas_informacoes(dias_verificar=10):
 if __name__ == "__main__":
 	import sys
 	try:
-		# se quiser rodar apenas na tabela informacoes: python remover_rotas_canceladas.py informacoes [dias]
 		if len(sys.argv) > 1 and sys.argv[1].lower() == "informacoes":
 			if len(sys.argv) > 2:
 				dias = int(sys.argv[2])
