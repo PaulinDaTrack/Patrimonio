@@ -4,7 +4,7 @@ load_dotenv()
 
 import requests
 import mysql.connector
-from datetime import datetime
+from datetime import datetime, timedelta
 from authtoken import obter_token
 import time
 from dateutil import parser
@@ -201,18 +201,23 @@ def verificar_violações_por_velocidade(token):
     batch_size = 10
     lote = 1
     max_workers = int(os.getenv('RV_MAX_WORKERS', '5'))
+    last_id = 0
 
     while True:
-        print(f"🔹 Processando lote {lote}...")
+        print(f"🔹 Processando lote {lote} (a partir do id>{last_id})...")
         cursor.execute("""
             SELECT id AS informacoes_id, RealVehicle, real_departure, real_arrival, RouteName, violation_type, id_grade
             FROM informacoes_com_cliente_mv
             WHERE real_departure IS NOT NULL AND real_arrival IS NOT NULL
+              AND id > %s
+            ORDER BY id
             LIMIT %s
-        """, (batch_size,))
+        """, (last_id, batch_size))
         registros = cursor.fetchall()
         if not registros:
             break
+        # avança o ponteiro de paginação para não repetir registros
+        last_id = registros[-1]['informacoes_id']
 
         work_items = []
         for reg in registros:
@@ -225,15 +230,18 @@ def verificar_violações_por_velocidade(token):
                 continue
             work_items.append(reg)
 
-        if not work_items:
-            lote += 1
-            continue
+            if not work_items:
+                lote += 1
+                continue
 
         grade_ids = [w['id_grade'] for w in work_items]
+        if not grade_ids:
+            lote += 1
+            continue
         placeholders = ','.join(['%s'] * len(grade_ids))
         validate_sql = f"SELECT id FROM u834686159_powerbi.historico_grades WHERE id IN ({placeholders})"
         cursor.execute(validate_sql, tuple(grade_ids))
-        existing = {r[0] for r in cursor.fetchall()}
+        existing = {r['id'] for r in cursor.fetchall()}
 
         to_process = [w for w in work_items if w['id_grade'] in existing]
         for w in work_items:
