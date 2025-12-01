@@ -11,6 +11,7 @@ from dateutil import parser
 import pytz
 from apscheduler.schedulers.background import BackgroundScheduler
 import atexit
+import concurrent.futures
 
 def routeviolation(token):
     parana_tz = pytz.timezone("America/Sao_Paulo")
@@ -127,14 +128,11 @@ def refresh_mv():
         cursor.execute("TRUNCATE TABLE informacoes_com_cliente_mv;")
         conn.commit()
 
-        # Processar em lotes menores para evitar timeouts no servidor
-        cursor.execute("SELECT COUNT(*) FROM informacoes;")
-        total = cursor.fetchone()[0]
         batch_size = 500
-        offset = 0
+        last_id = 0
 
-        while offset < total:
-            cursor.execute("SELECT id FROM informacoes ORDER BY id LIMIT %s OFFSET %s", (batch_size, offset))
+        while True:
+            cursor.execute("SELECT id FROM informacoes WHERE id > %s ORDER BY id LIMIT %s", (last_id, batch_size))
             ids = [row[0] for row in cursor.fetchall()]
             if not ids:
                 break
@@ -158,7 +156,7 @@ def refresh_mv():
                     h.id AS id_grade
                 FROM 
                     u834686159_powerbi.informacoes i
-                JOIN 
+                LEFT JOIN 
                     u834686159_powerbi.graderumocerto g 
                     ON TRIM(LOWER(i.RouteName)) = TRIM(LOWER(g.route_name))
                 JOIN (
@@ -178,7 +176,7 @@ def refresh_mv():
             cursor.execute(insert_sql, tuple(ids))
             conn.commit()
 
-            offset += batch_size
+            last_id = ids[-1]
 
         print("✅ MV atualizada com sucesso.")
         conn.close()
@@ -200,54 +198,60 @@ def verificar_violações_por_velocidade(token):
     conn = conectar_mysql()
     cursor = conn.cursor(dictionary=True)
 
-    batch_size = 10  # Reduzido para evitar timeout
-    offset = 0
+    batch_size = 10
     lote = 1
+    max_workers = int(os.getenv('RV_MAX_WORKERS', '5'))
+
     while True:
-        print(f"🔹 Processando lote {lote} (offset {offset})...")
+        print(f"🔹 Processando lote {lote}...")
         cursor.execute("""
             SELECT id AS informacoes_id, RealVehicle, real_departure, real_arrival, RouteName, violation_type, id_grade
             FROM informacoes_com_cliente_mv
             WHERE real_departure IS NOT NULL AND real_arrival IS NOT NULL
-            LIMIT %s OFFSET %s
-        """, (batch_size, offset))
+            LIMIT %s
+        """, (batch_size,))
         registros = cursor.fetchall()
         if not registros:
             break
 
+        work_items = []
         for reg in registros:
             if reg.get('violation_type'):
                 print(f"⏩ Pulando {reg['RouteName']} ({reg['RealVehicle']}) — violação já registrada: {reg['violation_type']}")
                 continue
+            if not reg.get('id_grade'):
+                print(f"⚠️ ID_GRADE ausente na MV para informacoes_id={reg.get('informacoes_id')}; marcando como inconsistente.")
+                cursor.execute("UPDATE informacoes SET violation_type = %s WHERE id = %s", ("Dados Inconsistentes (grade ausente)", reg.get('informacoes_id')))
+                continue
+            work_items.append(reg)
 
+        if not work_items:
+            lote += 1
+            continue
+
+        grade_ids = [w['id_grade'] for w in work_items]
+        placeholders = ','.join(['%s'] * len(grade_ids))
+        validate_sql = f"SELECT id FROM u834686159_powerbi.historico_grades WHERE id IN ({placeholders})"
+        cursor.execute(validate_sql, tuple(grade_ids))
+        existing = {r[0] for r in cursor.fetchall()}
+
+        to_process = [w for w in work_items if w['id_grade'] in existing]
+        for w in work_items:
+            if w['id_grade'] not in existing:
+                print(f"⚠️ Grade id={w['id_grade']} não encontrada para informacoes_id={w['informacoes_id']}; marcando como inconsistente.")
+                cursor.execute("UPDATE informacoes SET violation_type = %s WHERE id = %s", ("Dados Inconsistentes (grade ausente)", w['informacoes_id']))
+
+        conn.commit()
+
+        def fetch_violation(reg_item):
             try:
-                informacoes_id = reg.get('informacoes_id')
-                id_grade = reg.get('id_grade')
-
-                if id_grade is None:
-                    print(f"⚠️ ID_GRADE ausente na MV para informacoes_id={informacoes_id}; marcando como inconsistente.")
-                    cursor.execute("UPDATE informacoes SET violation_type = %s WHERE id = %s", ("Dados Inconsistentes (grade ausente)", informacoes_id))
-                    conn.commit()
-                    continue
-
-                validate_cursor = conn.cursor()
-                validate_cursor.execute("SELECT COUNT(*) FROM u834686159_powerbi.historico_grades WHERE id = %s", (id_grade,))
-                exists = validate_cursor.fetchone()[0] > 0
-                validate_cursor.close()
-
-                if not exists:
-                    print(f"⚠️ Grade id={id_grade} não encontrada para informacoes_id={informacoes_id}; marcando como inconsistente.")
-                    cursor.execute("UPDATE informacoes SET violation_type = %s WHERE id = %s", ("Dados Inconsistentes (grade ausente)", informacoes_id))
-                    conn.commit()
-                    continue
-
-                vehicle_code = reg['RealVehicle']
-                start = reg['real_departure']
-                end = reg['real_arrival']
-                route_name = reg['RouteName']
+                vehicle_code = reg_item['RealVehicle']
+                start = reg_item['real_departure']
+                end = reg_item['real_arrival']
+                informacoes_id = reg_item['informacoes_id']
 
                 if not (vehicle_code and start and end):
-                    continue
+                    return None
 
                 start_dt = parser.parse(start, dayfirst=True) if isinstance(start, str) else start
                 end_dt = parser.parse(end, dayfirst=True) if isinstance(end, str) else end
@@ -272,22 +276,16 @@ def verificar_violações_por_velocidade(token):
                 }
 
                 headers = {"Authorization": f"Bearer {token}"}
+                resp = requests.post("https://integration.systemsatx.com.br/Controlws/HistoryPosition/List", json=payload, headers=headers, timeout=30)
+                if resp.status_code == 204:
+                    return (informacoes_id, "Desvio de Rota")
+                if resp.status_code != 200 or not resp.content:
+                    return None
 
-                response = requests.post(
-                    "https://integration.systemsatx.com.br/Controlws/HistoryPosition/List",
-                    json=payload,
-                    headers=headers
-                )
-
-                if response.status_code == 204:
-                    continue
-                elif response.status_code == 200 and response.content:
-                    try:
-                        positions = response.json()
-                    except Exception:
-                        continue
-                else:
-                    continue
+                try:
+                    positions = resp.json()
+                except Exception:
+                    return None
 
                 violacao = "Desvio de Rota"
                 for pos in positions:
@@ -295,22 +293,27 @@ def verificar_violações_por_velocidade(token):
                         violacao = "Velocidade Excedida"
                         break
 
-                try:
-                    conn.ping(reconnect=True)
-                except Exception:
-                    conn = conectar_mysql()
-                    cursor = conn.cursor(dictionary=True)
-
-                cursor.execute("UPDATE informacoes SET violation_type = %s WHERE id = %s", (violacao, informacoes_id))
-                conn.commit()
-
-                time.sleep(1)
-
+                return (informacoes_id, violacao)
             except Exception as e:
-                print(f"💥 Erro inesperado na rota {reg.get('RouteName')} ({reg.get('RealVehicle')}): {e}")
-                continue
+                print(f"Erro no worker para informacoes_id={reg_item.get('informacoes_id')}: {e}")
+                return None
 
-        offset += batch_size
+        updates = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(fetch_violation, item) for item in to_process]
+            for future in concurrent.futures.as_completed(futures):
+                res = future.result()
+                if res:
+                    updates.append(res)
+
+        if updates:
+            try:
+                update_sql = "UPDATE informacoes SET violation_type = %s WHERE id = %s"
+                cursor.executemany(update_sql, updates)
+                conn.commit()
+            except Exception as e:
+                print(f"Erro ao atualizar violações em lote: {e}")
+
         lote += 1
 
     conn.close()
@@ -326,7 +329,7 @@ def iniciar_agendador():
 if __name__ == '__main__':
     token = obter_token()
     if token:
-        refresh_mv()  # Atualiza a MV primeiro
+        refresh_mv()
         routeviolation(token)
         verificar_violações_por_velocidade(token)
         iniciar_agendador()
