@@ -152,15 +152,12 @@ def refresh_mv():
                     i.data_execucao,
                     i.url,
                     i.violation_type,
-                    COALESCE(h.client_name, g.client_name) AS client_name,
+                    h.client_name AS client_name,
                     h.real_departure,
                     h.real_arrival,
                     h.id AS id_grade
                 FROM 
                     u834686159_powerbi.informacoes i
-                JOIN 
-                    u834686159_powerbi.graderumocerto g 
-                    ON TRIM(LOWER(i.RouteName)) = TRIM(LOWER(g.route_name))
                 JOIN (
                     -- pega apenas o registro mais recente por rota/data na historico_grades
                     SELECT hg.*
