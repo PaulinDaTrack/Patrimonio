@@ -94,26 +94,29 @@ def before_request():
 @app.route('/autocomplete_colaboradores')
 def autocomplete_colaboradores():
     term = (request.args.get('term') or '').strip()
-    term_like = f"%{term}%"
+    if len(term) < 2:
+        return jsonify([])
+
+    # Busca por prefixo para usar índice e limitar resultados
+    term_like = f"{term}%"
 
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT colaborador FROM colaboradores WHERE colaborador LIKE %s",
+        """
+        SELECT colaborador
+        FROM colaboradores
+        WHERE colaborador LIKE %s
+        ORDER BY colaborador
+        LIMIT 20
+        """,
         (term_like,)
     )
     rows = cursor.fetchall()
     cursor.close()
     conn.close()
 
-    # Remove duplicados e mantém ordem simples
-    unique = []
-    seen = set()
-    for (name,) in rows:
-        if name not in seen:
-            seen.add(name)
-            unique.append(name)
-    return jsonify(unique)
+    return jsonify([name for (name,) in rows])
 
 @app.route('/autocomplete_nomes')
 def autocomplete_nomes():
@@ -333,7 +336,6 @@ def tags_job():
         logging.exception(f"Erro no tags_job: {e}")
 
 scheduler = BackgroundScheduler()
-scheduler.add_job(func=lambda: app.test_client().get('/atualizar_colaboradores'), trigger="interval", days=1)
 
 scheduler.add_job(
     func=log_execution_time(processar_grid),
