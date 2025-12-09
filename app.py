@@ -12,6 +12,7 @@ from datetime import timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 import logging
 import time
+import threading
 
 from grid import processar_grid
 from ultima_execucao import atualizar_ultima_execucao
@@ -83,7 +84,27 @@ def create_index():
 
 create_index()
 
-# Removido o cache local de colaboradores (colaboradores.json)
+# Cache em memória de colaboradores para autocomplete
+colaboradores_cache = []
+colaboradores_cache_last_load = 0
+COLAB_CACHE_TTL_SECONDS = 300  # 5 minutos
+
+def carregar_colaboradores_cache(force=False):
+    global colaboradores_cache, colaboradores_cache_last_load
+    now = time.time()
+    if force or (now - colaboradores_cache_last_load) > COLAB_CACHE_TTL_SECONDS or not colaboradores_cache:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT colaborador FROM colaboradores ORDER BY colaborador")
+        rows = cursor.fetchall()
+        cursor.close()
+        conn.close()
+        colaboradores_cache = [name for (name,) in rows]
+        colaboradores_cache_last_load = now
+        logging.info(f"Cache de colaboradores carregado: {len(colaboradores_cache)} nomes.")
+
+def carregar_cache_async():
+    threading.Thread(target=carregar_colaboradores_cache, kwargs={"force": True}, daemon=True).start()
 
 @app.before_request
 def before_request():
@@ -97,26 +118,13 @@ def autocomplete_colaboradores():
     if len(term) < 2:
         return jsonify([])
 
-    # Busca por prefixo para usar índice e limitar resultados
-    term_like = f"{term}%"
+    # Garante cache atualizado (não bloqueante após primeiro carregamento)
+    carregar_colaboradores_cache()
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT colaborador
-        FROM colaboradores
-        WHERE colaborador LIKE %s
-        ORDER BY colaborador
-        LIMIT 20
-        """,
-        (term_like,)
-    )
-    rows = cursor.fetchall()
-    cursor.close()
-    conn.close()
-
-    return jsonify([name for (name,) in rows])
+    # Filtra em memória por prefixo, case-insensitive
+    t = term.lower()
+    resultados = [n for n in colaboradores_cache if n.lower().startswith(t)]
+    return jsonify(resultados[:20])
 
 @app.route('/autocomplete_nomes')
 def autocomplete_nomes():
@@ -398,6 +406,8 @@ scheduler.add_job(
 try:
     scheduler.start()
     logging.info("Agendador iniciado com sucesso.")
+    # Carrega cache de colaboradores em segundo plano na inicialização
+    carregar_cache_async()
 except Exception as e:
     logging.error(f"Erro ao iniciar o agendador: {e}")
 
