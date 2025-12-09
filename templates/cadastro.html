@@ -109,14 +109,21 @@
     <!-- Script do Autocomplete -->
     <script>
         $(function() {
+            var pending = null;
             $(".autocomplete").autocomplete({
+                minLength: 2,
+                delay: 150,
+                autoFocus: true,
                 source: function(request, response) {
-                    $.ajax({
+                    if (pending && pending.readyState !== 4) {
+                        pending.abort();
+                    }
+                    pending = $.ajax({
                         url: "{{ url_for('autocomplete_colaboradores') }}",
                         data: { term: request.term },
-                        success: function(data) {
-                            response(data);
-                        }
+                        success: function(data) { response(data); },
+                        error: function() { response([]); },
+                        complete: function() { pending = null; }
                     });
                 }
             });
