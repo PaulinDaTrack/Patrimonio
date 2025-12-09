@@ -83,12 +83,7 @@ def create_index():
 
 create_index()
 
-def load_colaboradores():
-    global colaboradores
-    with open('colaboradores.json', 'r') as f:
-        colaboradores = json.load(f)
-
-load_colaboradores()
+# Removido o cache local de colaboradores (colaboradores.json)
 
 @app.before_request
 def before_request():
@@ -98,9 +93,27 @@ def before_request():
 
 @app.route('/autocomplete_colaboradores')
 def autocomplete_colaboradores():
-    term = request.args.get('term').lower()
-    results = [colaborador for colaborador in colaboradores if term in colaborador.lower()]
-    return jsonify(results)
+    term = (request.args.get('term') or '').strip()
+    term_like = f"%{term}%"
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT colaborador FROM colaboradores WHERE colaborador LIKE %s",
+        (term_like,)
+    )
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    # Remove duplicados e mantém ordem simples
+    unique = []
+    seen = set()
+    for (name,) in rows:
+        if name not in seen:
+            seen.add(name)
+            unique.append(name)
+    return jsonify(unique)
 
 @app.route('/autocomplete_nomes')
 def autocomplete_nomes():
@@ -254,22 +267,7 @@ def login():
     
     return render_template('login.html', error=error)
 
-@app.route('/atualizar_colaboradores')
-def atualizar_colaboradores():
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("SELECT colaborador FROM colaboradores")
-    results = cursor.fetchall()
-    cursor.close()
-    conn.close()
-    
-    colaboradores = [row[0] for row in results]
-    
-    with open('colaboradores.json', 'w', encoding='utf-8') as f:
-        json.dump(colaboradores, f, ensure_ascii=False, indent=4)
-    
-    load_colaboradores()
-    return 'Colaboradores atualizados com sucesso', 200
+# Removido endpoint de atualização do cache de colaboradores, que não é mais necessário
 
 logging.basicConfig(level=logging.INFO)
 logging.getLogger('apscheduler').setLevel(logging.DEBUG)
