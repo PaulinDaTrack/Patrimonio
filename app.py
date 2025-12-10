@@ -425,63 +425,63 @@ def tags_job():
 
 scheduler = BackgroundScheduler()
 
-# scheduler.add_job(
-#     func=log_execution_time(processar_grid),
-#     trigger="interval",
-#     minutes=10,
-#     max_instances=1,
-#     coalesce=True,
-# )
+scheduler.add_job(
+    func=log_execution_time(processar_grid),
+    trigger="interval",
+    minutes=10,
+    max_instances=1,
+    coalesce=True,
+)
 
-# scheduler.add_job(
-#     func=log_execution_time(atualizar_ultima_execucao),
-#     trigger="interval",
-#     minutes=10,
-#     max_instances=1,
-#     coalesce=True,
-# )
+scheduler.add_job(
+    func=log_execution_time(atualizar_ultima_execucao),
+    trigger="interval",
+    minutes=10,
+    max_instances=1,
+    coalesce=True,
+)
 
-# scheduler.add_job(
-#     func=log_execution_time(routeviolation_completo),
-#     trigger="interval",
-#     minutes=10,
-#     max_instances=1,
-#     coalesce=True,
-# )
+scheduler.add_job(
+    func=log_execution_time(routeviolation_completo),
+    trigger="interval",
+    minutes=10,
+    max_instances=1,
+    coalesce=True,
+)
 
-# scheduler.add_job(
-#     func=refresh_mv_job,
-#     trigger="interval",
-#     minutes=60,
-#     max_instances=1,
-#     coalesce=True,
-# )
+scheduler.add_job(
+    func=refresh_mv_job,
+    trigger="interval",
+    minutes=60,
+    max_instances=1,
+    coalesce=True,
+)
 
-# scheduler.add_job(
-#     func=log_execution_time(tags_job),
-#     trigger="cron",
-#     minute=0,
-#     hour="*/2",
-#     max_instances=1,
-#     coalesce=True,
-# )
+scheduler.add_job(
+    func=log_execution_time(tags_job),
+    trigger="cron",
+    minute=0,
+    hour="*/2",
+    max_instances=1,
+    coalesce=True,
+)
 
-# scheduler.add_job(
-#     func=log_execution_time(remover_rotas_canceladas),
-#     trigger="cron",
-#     minute=0,
-#     hour="*/2",
-#     max_instances=1,
-#     coalesce=True,
-# )
+scheduler.add_job(
+    func=log_execution_time(remover_rotas_canceladas),
+    trigger="cron",
+    minute=0,
+    hour="*/2",
+    max_instances=1,
+    coalesce=True,
+)
 
-# scheduler.add_job(
-#     func=log_execution_time(odometer_main),
-#     trigger="interval",
-#     minutes=10,
-#     max_instances=1,
-#     coalesce=True,
-# )
+scheduler.add_job(
+    func=log_execution_time(odometer_main),
+    trigger="interval",
+    minutes=10,
+    max_instances=1,
+    coalesce=True,
+)
 
 try:
     scheduler.start()
