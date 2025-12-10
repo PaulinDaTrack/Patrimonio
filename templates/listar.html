@@ -44,6 +44,12 @@
                 {% for patrimonio in patrimonios %}
                 <tr class="patrimonio-row" data-id="{{ patrimonio[0] }}">
                     <td>{{ patrimonio[0] }}</td>
+                        <!-- Ícone fixo de voltar no topo (padrão global) -->
+                        <a class="back-fixed-top" href="/" aria-label="Voltar" style="position: fixed; top: 16px; left: 16px; z-index: 2000; display: inline-flex; align-items: center; justify-content: center; width: 40px; height: 40px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.15); background: rgba(30, 36, 54, 0.8); color: #fff; text-decoration: none;">
+                          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" width="20" height="20">
+                            <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                          </svg>
+                        </a>
                     <td>{{ patrimonio[1] }}</td>
                     <td>{{ patrimonio[4] }}</td>
                     <td>{{ patrimonio[2] }}</td>
@@ -142,9 +148,7 @@
                         alert('Erro ao atualizar informações.');
                     }
                 });
-            });
-
-            $('.cancel-btn').on('click', function() {
+                        <!-- Removido botão de voltar para usar ícone fixo -->
                 var form = $(this).closest('.edit-form');
                 var detailsRow = form.closest('.patrimonio-details');
                 detailsRow.hide();

@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Colaboradores</title>
+  <link rel="stylesheet" href="/static/listar.css" />
+  <style>
+    :root {
+      --bg: #0d0f14;
+      --panel: #151925;
+      --panel-2: #1d2333;
+      --text: #e9e9ef;
+      --muted: #a8a8b8;
+      --primary: #8b5cf6;
+      --primary-2: #6d28d9;
+      --border: #2b3246;
+      --ok: #10b981;
+    }
+    /* Use o fundo padrão das demais telas; não aplicar override aqui */
+    body { color: var(--text); font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .container { max-width: 1000px; margin: 32px auto 80px; padding: 24px; background: transparent; border: 1px solid var(--border); border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.35); }
+    h1 { margin: 0 0 12px; font-size: 28px; letter-spacing: 0.2px; }
+    .subtitle { margin: 0 0 24px; color: var(--muted); }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    .card { background: rgba(255,255,255,0.02); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+    .form-row { display: grid; grid-template-columns: 200px 1fr auto; gap: 12px; align-items: end; }
+    label { font-size: 12px; color: var(--muted); }
+    input[type="text"] { padding: 10px 12px; color: var(--text); background: #0f1320; border: 1px solid var(--border); border-radius: 8px; outline: none; width: 100%; }
+    input[type="text"]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(139,92,246,0.2); }
+    .btn { padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border); background: linear-gradient(180deg, #2a2f45 0%, #1e2436 100%); color: var(--text); cursor: pointer; }
+    .btn:hover { border-color: var(--primary); }
+    .btn-primary { background: linear-gradient(180deg, var(--primary) 0%, var(--primary-2) 100%); border: none; }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 8px; }
+    .toolbar .search { flex: 1; }
+    table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 12px; }
+    thead th { position: sticky; top: 0; background: #1b2133; color: var(--muted); text-align: left; font-weight: 600; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+    tbody td { border-bottom: 1px solid var(--border); padding: 10px 12px; vertical-align: middle; }
+    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    .cpf { font-variant-numeric: tabular-nums; letter-spacing: 0.3px; }
+    .row-actions { display: flex; gap: 8px; }
+    .btn-small { padding: 8px 10px; font-size: 12px; }
+    .table-wrap { overflow: visible; border: 1px solid var(--border); border-radius: 12px; }
+    .back-row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }
+    .back-fixed-top {
+      position: fixed;
+      top: 16px;
+      left: 16px;
+      z-index: 2000;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: linear-gradient(180deg, #2a2f45 0%, #1e2436 100%);
+      color: var(--text);
+      text-decoration: none;
+    }
+    .back-fixed-top:hover { border-color: var(--primary); }
+    .back-fixed-top svg { width: 20px; height: 20px; }
+    .hint { font-size: 12px; color: var(--muted); margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Ícone fixo de voltar no topo (padrão) -->
+    <a class="back-fixed-top" href="/" aria-label="Voltar">
+      <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M15 18l-6-6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+    <div class="back-row"></div>
+    <h1>Gerenciar Colaboradores</h1>
+    <p class="subtitle">Cadastre, pesquise e edite colaboradores vinculados aos patrimônios.</p>
+
+    <div class="grid">
+      <div class="card">
+        <h3 style="margin-top:0;">Cadastrar novo</h3>
+        <form class="form-row" method="POST" action="/cadastrar_colaborador" onsubmit="return validarCadastro()">
+          <div>
+            <label>CPF</label><br />
+            <input id="cpf" type="text" name="cpf" maxlength="14" placeholder="000.000.000-00" required />
+          </div>
+          <div>
+            <label>Nome do colaborador</label><br />
+            <input id="nome" type="text" name="colaborador" maxlength="255" required />
+          </div>
+          <button class="btn btn-primary" type="submit">Cadastrar</button>
+        </form>
+        <div class="hint">Dica: cole o CPF e o campo será formatado automaticamente.</div>
+      </div>
+
+      <div class="card">
+        <div class="toolbar">
+          <input id="search" class="search" type="text" placeholder="Pesquisar por CPF ou nome..." oninput="filtrar()" />
+          <button class="btn" type="button" onclick="limparFiltro()">Limpar</button>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:200px;">CPF</th>
+                <th>Colaborador</th>
+                <th style="width:160px;">Ações</th>
+              </tr>
+            </thead>
+            <tbody id="tbody-colab">
+              {% for cpf, nome in colaboradores %}
+              <tr>
+                <td class="cpf">{{ cpf }}</td>
+                <td>
+                  <form class="row-actions" method="POST" action="/editar_colaborador" onsubmit="return validarEdicao(this)">
+                    <input type="hidden" name="cpf" value="{{ cpf }}" />
+                    <input type="text" name="colaborador" value="{{ nome }}" maxlength="255" disabled />
+                    <button class="btn btn-small" type="button" onclick="habilitarEdicao(this)">Editar</button>
+                    <button class="btn btn-primary btn-small" type="submit" disabled>Salvar</button>
+                    <button class="btn btn-small" type="button" onclick="cancelarEdicao(this)" style="display:none;">Cancelar</button>
+                  </form>
+                </td>
+                <td>
+                  <!-- espaço para futuras ações (excluir, etc.) -->
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Botão de voltar posicionado próximo ao topo, dentro do fluxo -->
+  </div>
+  <script>
+    // Máscara de CPF enquanto digita
+    function maskCPF(value) {
+      return value
+        .replace(/\D/g, '')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d)/, '$1.$2')
+        .replace(/(\d{3})(\d{1,2})$/, '$1-$2')
+        .slice(0, 14);
+    }
+    const cpfInput = document.getElementById('cpf');
+    if (cpfInput) {
+      cpfInput.addEventListener('input', (e) => {
+        e.target.value = maskCPF(e.target.value);
+      });
+    }
+
+    function validarCadastro() {
+      const cpf = document.getElementById('cpf').value.trim();
+      const nome = document.getElementById('nome').value.trim();
+      if (!cpf || !nome) return false;
+      if (cpf.length !== 14) {
+        alert('CPF deve estar no formato 000.000.000-00');
+        return false;
+      }
+      return true;
+    }
+
+    function validarEdicao(form) {
+      const nome = form.querySelector('input[name="colaborador"]').value.trim();
+      if (!nome) {
+        alert('Informe o nome do colaborador.');
+        return false;
+      }
+      return true;
+    }
+
+    function habilitarEdicao(btn) {
+      const form = btn.closest('form');
+      const input = form.querySelector('input[name="colaborador"]');
+      const salvar = form.querySelector('button[type="submit"]');
+      const cancelar = form.querySelector('button[onclick^="cancelarEdicao"]');
+      input.disabled = false;
+      input.focus();
+      btn.style.display = 'none';
+      salvar.disabled = false;
+      cancelar.style.display = '';
+    }
+
+    function cancelarEdicao(btn) {
+      const form = btn.closest('form');
+      const input = form.querySelector('input[name="colaborador"]');
+      const editar = form.querySelector('button[onclick^="habilitarEdicao"]');
+      const salvar = form.querySelector('button[type="submit"]');
+      // restaura valor original do atributo value renderizado
+      input.value = input.getAttribute('value');
+      input.disabled = true;
+      salvar.disabled = true;
+      btn.style.display = 'none';
+      editar.style.display = '';
+    }
+
+    function filtrar() {
+      const q = (document.getElementById('search').value || '').toLowerCase();
+      const rows = document.querySelectorAll('#tbody-colab tr');
+      rows.forEach((tr) => {
+        const cpf = (tr.querySelector('.cpf')?.textContent || '').toLowerCase();
+        const nome = (tr.querySelector('input[name="colaborador"]').value || '').toLowerCase();
+        tr.style.display = cpf.includes(q) || nome.includes(q) ? '' : 'none';
+      });
+    }
+    function limparFiltro() {
+      const input = document.getElementById('search');
+      input.value = '';
+      filtrar();
+    }
+  </script>
+</body>
+</html>
