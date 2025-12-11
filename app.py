@@ -43,10 +43,37 @@ def get_db_connection():
     return connection_pool.get_connection()
 
 GOOGLE_DRIVE_CREDENTIALS_JSON = os.getenv('GOOGLE_DRIVE_CREDENTIALS_JSON')
-credentials_info = json.loads(GOOGLE_DRIVE_CREDENTIALS_JSON)
-SCOPES = ['https://www.googleapis.com/auth/drive.file']
-credentials = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
-drive_service = build('drive', 'v3', credentials=credentials)
+drive_service = None
+try:
+    credentials_info = None
+    if GOOGLE_DRIVE_CREDENTIALS_JSON:
+        try:
+            # Tenta carregar como JSON literal
+            credentials_info = json.loads(GOOGLE_DRIVE_CREDENTIALS_JSON)
+        except json.JSONDecodeError:
+            # Se não for JSON, tenta tratar como caminho de arquivo ou base64
+            if os.path.isfile(GOOGLE_DRIVE_CREDENTIALS_JSON):
+                with open(GOOGLE_DRIVE_CREDENTIALS_JSON, 'r') as f:
+                    credentials_info = json.load(f)
+            else:
+                try:
+                    import base64
+                    decoded = base64.b64decode(GOOGLE_DRIVE_CREDENTIALS_JSON)
+                    credentials_info = json.loads(decoded)
+                except Exception:
+                    credentials_info = None
+
+    if credentials_info:
+        SCOPES = ['https://www.googleapis.com/auth/drive.file']
+        credentials = service_account.Credentials.from_service_account_info(credentials_info, scopes=SCOPES)
+        drive_service = build('drive', 'v3', credentials=credentials)
+        logging.info('Google Drive API inicializada com sucesso.')
+    else:
+        logging.warning('Credenciais do Google Drive ausentes ou inválidas; uploads serão ignorados.')
+except Exception as e:
+    # Evita derrubar a aplicação se credenciais estiverem inválidas
+    drive_service = None
+    logging.error(f'Falha ao inicializar Google Drive API: {e}')
 
 FOLDER_ID = '1hUe5xKP4krWcVVHd71kreLs81XqevsQY'
 
@@ -55,18 +82,25 @@ if not os.path.exists(tmp_dir):
     os.makedirs(tmp_dir)
 
 def create_folder_if_not_exists(folder_name, parent_id):
-    query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}' and '{parent_id}' in parents"
-    response = drive_service.files().list(q=query, spaces='drive').execute()
-    if not response['files']:
-        file_metadata = {
-            'name': folder_name,
-            'mimeType': 'application/vnd.google-apps.folder',
-            'parents': [parent_id]
-        }
-        folder = drive_service.files().create(body=file_metadata, fields='id').execute()
-        return folder.get('id')
-    else:
-        return response['files'][0]['id']
+    # Se serviço não disponível, retorna None
+    if not drive_service:
+        return None
+    try:
+        query = f"mimeType='application/vnd.google-apps.folder' and name='{folder_name}' and '{parent_id}' in parents"
+        response = drive_service.files().list(q=query, spaces='drive').execute()
+        if not response.get('files'):
+            file_metadata = {
+                'name': folder_name,
+                'mimeType': 'application/vnd.google-apps.folder',
+                'parents': [parent_id]
+            }
+            folder = drive_service.files().create(body=file_metadata, fields='id').execute()
+            return folder.get('id')
+        else:
+            return response['files'][0].get('id')
+    except Exception as e:
+        logging.error(f'Erro ao criar/listar pasta no Drive: {e}')
+        return None
 
 def create_index():
     conn = get_db_connection()
@@ -283,19 +317,24 @@ def cadastrar():
             return f"Erro: Etiqueta {etiqueta} já cadastrada!", 400
 
         etiqueta_folder_id = create_folder_if_not_exists(etiqueta, FOLDER_ID)
-        folder_url = f"https://drive.google.com/drive/folders/{etiqueta_folder_id}"
+        folder_url = f"https://drive.google.com/drive/folders/{etiqueta_folder_id}" if etiqueta_folder_id else ''
 
         try:
-            for anexo in anexos:
-                if (anexo):
-                    anexo_path = os.path.join(tmp_dir, anexo.filename)
-                    anexo.save(anexo_path)
-                    file_metadata = {
-                        'name': anexo.filename,
-                        'parents': [etiqueta_folder_id]
-                    }
-                    media = MediaFileUpload(anexo_path, mimetype=anexo.content_type)
-                    drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+            # Só tenta upload se pasta foi criada e serviço está disponível
+            if drive_service and etiqueta_folder_id:
+                for anexo in anexos:
+                    if anexo:
+                        anexo_path = os.path.join(tmp_dir, anexo.filename)
+                        anexo.save(anexo_path)
+                        file_metadata = {
+                            'name': anexo.filename,
+                            'parents': [etiqueta_folder_id]
+                        }
+                        media = MediaFileUpload(anexo_path, mimetype=anexo.content_type)
+                        try:
+                            drive_service.files().create(body=file_metadata, media_body=media, fields='id').execute()
+                        except Exception as e:
+                            logging.error(f'Falha ao enviar arquivo ao Drive: {e}')
         finally:
             shutil.rmtree(tmp_dir)
             os.makedirs(tmp_dir)
