@@ -36,13 +36,13 @@ def configure_scheduler(*, settings: SchedulerSettings, pool: pooling.MySQLConne
         coalesce=True,
     )
 
-    scheduler.add_job(
-        func=log_execution_time(routeviolation_completo),
-        trigger="interval",
-        minutes=60,
-        max_instances=1,
-        coalesce=True,
-    )
+    # scheduler.add_job(
+    #     func=log_execution_time(routeviolation_completo),
+    #     trigger="interval",
+    #     minutes=60,
+    #     max_instances=1,
+    #     coalesce=True,
+    # )
 
     scheduler.add_job(
         func=refresh_mv_job,
