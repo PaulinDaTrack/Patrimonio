@@ -207,7 +207,7 @@ def processar_grid():
         )
     '''
 
-    dias_a_verificar = 10
+    dias_a_verificar = 1
     for i in range(dias_a_verificar):
         data_alvo = datetime.datetime.now(pytz.timezone("America/Sao_Paulo")) - datetime.timedelta(days=i)
         data_formatada = data_alvo.strftime("%d/%m/%Y")
