@@ -4,6 +4,7 @@ load_dotenv()
 
 import requests
 import datetime
+import hashlib
 import mysql.connector
 import pytz
 import time
@@ -29,6 +30,56 @@ def nullify_date(date_str):
     if date_str in ["01/01/1 00:00:00", "01/01/0001 00:00:00"]:
          return None
     return date_str
+
+def gerar_dedupe_slot(line, route_integration_code, direction_name, shift, estimated_departure, estimated_arrival, real_departure, real_arrival):
+    """
+    Para a linha 50614, gera uma chave estável por viagem para permitir
+    múltiplos registros no mesmo dia/sentido.
+    Para as demais linhas, mantém deduplicação antiga (slot vazio).
+    """
+    if str(line).strip() != "50614":
+        return ""
+
+    referencia_viagem = (
+        estimated_departure
+        or real_departure
+        or estimated_arrival
+        or real_arrival
+        or ""
+    )
+
+    chave_bruta = "|".join([
+        str(route_integration_code or ""),
+        str(direction_name or ""),
+        str(shift or ""),
+        str(referencia_viagem),
+    ])
+    return hashlib.sha1(chave_bruta.encode("utf-8")).hexdigest()
+
+def garantir_indice_deduplicacao(cursor, conn):
+    """
+    Garante que o índice único use (route_integration_code, data_registro, dedupe_slot).
+    Assim, apenas a linha 50614 pode ter múltiplas viagens/dia via dedupe_slot.
+    """
+    cursor.execute("""
+        SELECT COLUMN_NAME
+        FROM information_schema.statistics
+        WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME = 'historico_grades'
+          AND INDEX_NAME = 'idx_codigo_data'
+        ORDER BY SEQ_IN_INDEX
+    """)
+    idx_cols = [row[0] for row in cursor.fetchall()]
+
+    alvo = ['route_integration_code', 'data_registro', 'dedupe_slot']
+    if idx_cols != alvo:
+        if idx_cols:
+            cursor.execute("ALTER TABLE historico_grades DROP INDEX idx_codigo_data")
+        cursor.execute("""
+            ALTER TABLE historico_grades
+            ADD UNIQUE KEY idx_codigo_data (route_integration_code, data_registro, dedupe_slot)
+        """)
+        conn.commit()
 
 def processar_grid():
     token = obter_token()
@@ -72,9 +123,10 @@ def processar_grid():
         estimated_distance VARCHAR(50),
         travelled_distance VARCHAR(50),
         odometro VARCHAR(50),
+        dedupe_slot VARCHAR(64) DEFAULT '',
         client_name VARCHAR(255),
         data_registro DATE,
-        UNIQUE KEY idx_codigo_data (route_integration_code, data_registro)
+        UNIQUE KEY idx_codigo_data (route_integration_code, data_registro, dedupe_slot)
     );
     """)
     conn.commit()
@@ -84,12 +136,35 @@ def processar_grid():
     """)
     conn.commit()
 
+    cursor.execute("""
+    ALTER TABLE historico_grades ADD COLUMN IF NOT EXISTS dedupe_slot VARCHAR(64) DEFAULT '';
+    """)
+    conn.commit()
+
+    garantir_indice_deduplicacao(cursor, conn)
+
+    cursor.execute("""
+    UPDATE historico_grades
+    SET dedupe_slot = CASE
+        WHEN TRIM(COALESCE(line, '')) = '50614' THEN
+            SHA1(CONCAT_WS('|',
+                COALESCE(route_integration_code, ''),
+                COALESCE(direction_name, ''),
+                COALESCE(shift, ''),
+                COALESCE(NULLIF(estimated_departure, ''), NULLIF(real_departure, ''), NULLIF(estimated_arrival, ''), NULLIF(real_arrival, ''), '')
+            ))
+        ELSE ''
+    END
+    WHERE dedupe_slot IS NULL OR dedupe_slot = '';
+    """)
+    conn.commit()
+
     insert_historico_query = '''
     INSERT INTO historico_grades (
         line, estimated_departure, estimated_arrival, real_departure, real_arrival,
         route_integration_code, route_name, direction_name, shift,
-        estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, data_registro, travelled_distance_original, odometro
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        estimated_vehicle, real_vehicle, estimated_distance, travelled_distance, client_name, data_registro, travelled_distance_original, dedupe_slot, odometro
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON DUPLICATE KEY UPDATE
         odometro = IF(VALUES(odometro) IS NOT NULL AND VALUES(odometro) != '', VALUES(odometro), odometro),
         travelled_distance_original = IF((travelled_distance_original IS NULL OR travelled_distance_original = '' OR travelled_distance_original = 'NULL') AND VALUES(travelled_distance_original) IS NOT NULL, VALUES(travelled_distance_original), travelled_distance_original),
@@ -200,11 +275,21 @@ def processar_grid():
             client_name = item.get('ClientName') or existing_routes.get(route_integration_code)
             if client_name:
                 client_name = client_name.strip()
+                dedupe_slot = gerar_dedupe_slot(
+                    line,
+                    route_integration_code,
+                    direction_name,
+                    shift,
+                    estimated_departure,
+                    estimated_arrival,
+                    real_departure,
+                    real_arrival,
+                )
             batch_data.append((
                 line, estimated_departure, estimated_arrival, real_departure, real_arrival,
                 route_integration_code, route_name, direction_name, shift,
                 estimated_vehicle, real_vehicle, estimated_distance, travelled_distance,
-                client_name, data_alvo.date(), travelled_distance_original, None  # odometro
+                    client_name, data_alvo.date(), travelled_distance_original, dedupe_slot, None  # odometro
             ))
 
         for attempt in range(3):
